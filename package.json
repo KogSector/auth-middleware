@@ -1,0 +1,34 @@
+{
+    "name": "conhub-auth-middleware",
+    "version": "1.0.0",
+    "description": "ConHub Auth Middleware - Auth0-based authentication for all microservices",
+    "main": "src/index.js",
+    "scripts": {
+        "start": "node src/index.js",
+        "dev": "nodemon src/index.js",
+        "lint": "eslint src",
+        "test": "jest",
+        "prisma:generate": "prisma generate",
+        "prisma:push": "prisma db push"
+    },
+    "dependencies": {
+        "@prisma/client": "^5.7.1",
+        "cors": "^2.8.5",
+        "dotenv": "^16.3.1",
+        "express": "^4.18.2",
+        "helmet": "^7.1.0",
+        "jose": "^5.2.0",
+        "jsonwebtoken": "^9.0.2",
+        "uuid": "^9.0.1",
+        "winston": "^3.11.0"
+    },
+    "devDependencies": {
+        "eslint": "^8.56.0",
+        "jest": "^29.7.0",
+        "nodemon": "^3.0.2",
+        "prisma": "^5.7.1"
+    },
+    "engines": {
+        "node": ">=18.0.0"
+    }
+}
