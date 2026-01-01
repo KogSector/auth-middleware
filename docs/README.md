@@ -1,266 +1,147 @@
-# Auth Middleware Documentation
+# ConFuse Auth Middleware
 
-## Overview
+> Authentication and Authorization Service for the ConFuse Platform
 
-The auth-middleware service handles all authentication and authorization for the ConFuse platform. It provides JWT-based authentication, OAuth2 integration, and API key management.
+## What is this service?
 
-## Architecture
+The **auth-middleware** is ConFuse's security layer. It handles all authentication (who you are) and authorization (what you can do) for the entire platform.
 
-```
-┌──────────────────────────────────────────────────────────────────┐
-│                     AUTH-MIDDLEWARE                               │
-├──────────────────────────────────────────────────────────────────┤
-│                                                                   │
-│  ┌─────────────────┐  ┌─────────────────┐  ┌─────────────────┐  │
-│  │   JWT Service   │  │  OAuth Service  │  │ API Key Service │  │
-│  │                 │  │                 │  │                 │  │
-│  │ • Sign tokens   │  │ • GitHub OAuth  │  │ • Create keys   │  │
-│  │ • Verify tokens │  │ • Google OAuth  │  │ • Validate keys │  │
-│  │ • Refresh       │  │ • GitLab OAuth  │  │ • Revoke keys   │  │
-│  └─────────────────┘  └─────────────────┘  └─────────────────┘  │
-│                                                                   │
-│  ┌─────────────────┐  ┌─────────────────┐                       │
-│  │ Session Manager │  │  Rate Limiter   │                       │
-│  │                 │  │                 │                       │
-│  │ • Redis-backed  │  │ • Per-user      │                       │
-│  │ • TTL handling  │  │ • Per-IP        │                       │
-│  └─────────────────┘  └─────────────────┘                       │
-│                                                                   │
-│                    ┌─────────────────┐                           │
-│                    │    Database     │                           │
-│                    │                 │                           │
-│                    │ • Users table   │                           │
-│                    │ • API keys      │                           │
-│                    │ • Sessions      │                           │
-│                    └─────────────────┘                           │
-└──────────────────────────────────────────────────────────────────┘
+## Quick Start
+
+```bash
+# Clone and install
+git clone https://github.com/confuse/auth-middleware.git
+cd auth-middleware
+npm install
+
+# Configure
+cp .env.example .env
+
+# Run migrations
+npm run migrate
+
+# Start development server
+npm run dev
 ```
 
-## Authentication Flows
+The server starts at `http://localhost:3001`.
 
-### 1. Email/Password Login
+## Documentation
 
-```
-Client                    Auth-Middleware              Database
-  │                             │                         │
-  │ POST /auth/login            │                         │
-  │ {email, password}           │                         │
-  │────────────────────────────>│                         │
-  │                             │ Lookup user             │
-  │                             │────────────────────────>│
-  │                             │<────────────────────────│
-  │                             │                         │
-  │                             │ Verify password (bcrypt)│
-  │                             │                         │
-  │                             │ Generate JWT            │
-  │                             │                         │
-  │ {token, refreshToken, user} │                         │
-  │<────────────────────────────│                         │
-```
+| Document | Description |
+|----------|-------------|
+| [Architecture](architecture.md) | Service design and flows |
+| [API Reference](api-reference.md) | Complete endpoint documentation |
+| [Configuration](configuration.md) | Environment variables |
+| [Integration](integration.md) | How other services use this |
+| [Development](development.md) | Local development setup |
+| [OAuth Setup](oauth-setup.md) | Setting up OAuth providers |
+| [Troubleshooting](troubleshooting.md) | Common issues |
 
-### 2. OAuth Flow (GitHub Example)
+## How It Fits in ConFuse
 
 ```
-Client                    Auth-Middleware              GitHub
-  │                             │                         │
-  │ GET /oauth/github           │                         │
-  │────────────────────────────>│                         │
-  │                             │                         │
-  │ Redirect to GitHub          │                         │
-  │<────────────────────────────│                         │
-  │                             │                         │
-  │ ──────────────────────────────────────────────────────>
-  │                             │    User authorizes     │
-  │ <──────────────────────────────────────────────────────
-  │                             │                         │
-  │ GET /oauth/github/callback  │                         │
-  │ ?code=xxx                   │                         │
-  │────────────────────────────>│                         │
-  │                             │ Exchange code for token │
-  │                             │────────────────────────>│
-  │                             │<────────────────────────│
-  │                             │                         │
-  │                             │ Get user info           │
-  │                             │────────────────────────>│
-  │                             │<────────────────────────│
-  │                             │                         │
-  │                             │ Create/update user      │
-  │                             │ Generate JWT            │
-  │                             │                         │
-  │ Redirect with token         │                         │
-  │<────────────────────────────│                         │
+┌─────────────────────────────────────────────────────────────────────────┐
+│                              CLIENTS                                     │
+│              Frontend  │  API Backend  │  Other Services                │
+└────────────────────────────────┬────────────────────────────────────────┘
+                                 │
+                                 ▼
+┌─────────────────────────────────────────────────────────────────────────┐
+│                    AUTH-MIDDLEWARE (This Service)                        │
+│                            Port: 3001                                    │
+├─────────────────────────────────────────────────────────────────────────┤
+│                                                                          │
+│   ┌──────────────┐    ┌──────────────┐    ┌──────────────┐             │
+│   │     JWT      │    │    OAuth2    │    │   API Keys   │             │
+│   │   Handler    │    │    Handler   │    │   Handler    │             │
+│   │              │    │              │    │              │             │
+│   │ • Sign       │    │ • GitHub     │    │ • Create     │             │
+│   │ • Verify     │    │ • Google     │    │ • Validate   │             │
+│   │ • Refresh    │    │ • GitLab     │    │ • Revoke     │             │
+│   └──────────────┘    └──────────────┘    └──────────────┘             │
+│                                                                          │
+│   ┌──────────────┐    ┌──────────────┐    ┌──────────────┐             │
+│   │   Sessions   │    │ Rate Limiting│    │    Audit     │             │
+│   │   (Redis)    │    │              │    │   Logging    │             │
+│   └──────────────┘    └──────────────┘    └──────────────┘             │
+│                                                                          │
+└─────────────────────────────────────────────────────────────────────────┘
+                                 │
+                                 ▼
+                    ┌────────────────────────┐
+                    │      PostgreSQL        │
+                    │    (Users, Keys)       │
+                    └────────────────────────┘
 ```
 
-### 3. API Key Validation
+## Key Features
 
-```
-Service                   Auth-Middleware              Database
-  │                             │                         │
-  │ POST /api-keys/validate     │                         │
-  │ {apiKey: "key_xxx"}         │                         │
-  │────────────────────────────>│                         │
-  │                             │ Hash + lookup key       │
-  │                             │────────────────────────>│
-  │                             │<────────────────────────│
-  │                             │                         │
-  │                             │ Check expiry, scope     │
-  │                             │                         │
-  │ {valid, userId, scopes}     │                         │
-  │<────────────────────────────│                         │
-```
+### 1. JWT Authentication
+- Issue access tokens (short-lived)
+- Issue refresh tokens (long-lived)
+- Verify tokens on each request
+- Token rotation for security
 
-## JWT Token Structure
+### 2. OAuth2 Integration
+- GitHub OAuth for repository access
+- Google OAuth for Drive access
+- GitLab OAuth for project access
+- Extensible for new providers
 
-```json
-{
-  "header": {
-    "alg": "HS256",
-    "typ": "JWT"
-  },
-  "payload": {
-    "sub": "user-uuid",
-    "email": "user@example.com",
-    "roles": ["user", "admin"],
-    "iat": 1704067200,
-    "exp": 1704153600
-  }
-}
-```
+### 3. API Key Management
+- Generate API keys for programmatic access
+- Scope-based permissions
+- Key rotation
+- Usage tracking
 
-## API Key Format
+### 4. Session Management
+- Redis-backed sessions
+- Device tracking
+- Session invalidation
+- Concurrent session limits
 
-```
-key_live_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
-│   │    │
-│   │    └── 32 random characters
-│   └── Environment (live/test)
-└── Prefix
-```
+### 5. Security Features
+- Rate limiting (login attempts, token requests)
+- Audit logging (all auth events)
+- Password hashing (bcrypt)
+- CSRF protection
+
+## Technology Stack
+
+| Technology | Purpose |
+|------------|---------|
+| Node.js | Runtime |
+| Express.js | Web framework |
+| TypeScript | Type safety |
+| PostgreSQL | User data storage |
+| Redis | Session storage, rate limiting |
+| bcrypt | Password hashing |
+| jsonwebtoken | JWT operations |
+| passport.js | OAuth strategies |
 
 ## Database Schema
 
 ```sql
--- Users
-CREATE TABLE users (
-  id UUID PRIMARY KEY,
-  email VARCHAR(255) UNIQUE NOT NULL,
-  password_hash VARCHAR(255),
-  name VARCHAR(255),
-  avatar_url VARCHAR(500),
-  provider VARCHAR(50),
-  provider_id VARCHAR(255),
-  created_at TIMESTAMP DEFAULT NOW(),
-  updated_at TIMESTAMP DEFAULT NOW()
-);
-
--- API Keys
-CREATE TABLE api_keys (
-  id UUID PRIMARY KEY,
-  user_id UUID REFERENCES users(id),
-  key_hash VARCHAR(255) NOT NULL,
-  name VARCHAR(255),
-  scopes TEXT[],
-  last_used_at TIMESTAMP,
-  expires_at TIMESTAMP,
-  created_at TIMESTAMP DEFAULT NOW()
-);
-
--- Sessions
-CREATE TABLE sessions (
-  id UUID PRIMARY KEY,
-  user_id UUID REFERENCES users(id),
-  refresh_token_hash VARCHAR(255),
-  ip_address INET,
-  user_agent TEXT,
-  expires_at TIMESTAMP,
-  created_at TIMESTAMP DEFAULT NOW()
-);
+-- Core tables managed by this service
+users          -- User accounts
+api_keys       -- API keys for programmatic access
+sessions       -- Active login sessions
+oauth_tokens   -- OAuth provider tokens
+audit_logs     -- Authentication event logs
 ```
-
-## Integration Examples
-
-### From api-backend (Node.js)
-
-```javascript
-const authClient = require('./lib/auth-client');
-
-// Middleware to verify JWT
-const requireAuth = async (req, res, next) => {
-  const token = req.headers.authorization?.split(' ')[1];
-  
-  if (!token) {
-    return res.status(401).json({ error: 'No token provided' });
-  }
-  
-  try {
-    const result = await authClient.verifyToken(token);
-    req.user = result.user;
-    next();
-  } catch (err) {
-    res.status(401).json({ error: 'Invalid token' });
-  }
-};
-
-// Middleware to verify API key
-const requireApiKey = async (req, res, next) => {
-  const apiKey = req.headers['x-api-key'];
-  
-  if (!apiKey) {
-    return res.status(401).json({ error: 'No API key provided' });
-  }
-  
-  try {
-    const result = await authClient.validateApiKey(apiKey);
-    req.user = { id: result.userId };
-    req.scopes = result.scopes;
-    next();
-  } catch (err) {
-    res.status(401).json({ error: 'Invalid API key' });
-  }
-};
-```
-
-### From Python Services
-
-```python
-import httpx
-
-class AuthClient:
-    def __init__(self, base_url: str = "http://auth-middleware:3001"):
-        self.base_url = base_url
-    
-    async def verify_token(self, token: str) -> dict:
-        async with httpx.AsyncClient() as client:
-            response = await client.get(
-                f"{self.base_url}/auth/verify",
-                headers={"Authorization": f"Bearer {token}"}
-            )
-            response.raise_for_status()
-            return response.json()
-    
-    async def validate_api_key(self, api_key: str) -> dict:
-        async with httpx.AsyncClient() as client:
-            response = await client.post(
-                f"{self.base_url}/api-keys/validate",
-                json={"apiKey": api_key}
-            )
-            response.raise_for_status()
-            return response.json()
-```
-
-## Security Considerations
-
-1. **Password Hashing**: bcrypt with work factor 12
-2. **Token Storage**: JWTs are stateless; refresh tokens stored hashed
-3. **API Key Storage**: Only hash stored, original shown once on creation
-4. **Rate Limiting**: 10 login attempts per IP per minute
-5. **HTTPS Only**: All endpoints require TLS in production
 
 ## Related Services
 
-| Service | Relationship |
-|---------|--------------|
-| api-backend | Calls auth-middleware to verify requests |
-| client-connector | Uses JWT validation for WebSocket auth |
-| data-connector | Uses API key validation for service-to-service |
-| frontend | Initiates OAuth flows and stores tokens |
+Every ConFuse service depends on auth-middleware:
+
+| Service | How It Uses Auth |
+|---------|------------------|
+| api-backend | Validates JWT on every request |
+| data-connector | Validates API keys for webhooks |
+| client-connector | Validates WebSocket connections |
+| frontend | Initiates OAuth flows, stores tokens |
+
+## License
+
+MIT - ConFuse Team
