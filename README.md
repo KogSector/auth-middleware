@@ -1,14 +1,70 @@
-# ConHub Auth Middleware
+# ConFuse Auth Middleware
 
-Pure JavaScript authentication middleware using Auth0 for all ConHub microservices.
+Authentication and authorization service for the ConFuse platform. Handles JWT tokens, OAuth flows, API keys, and user sessions.
+
+## Role in ConFuse
+
+```
+┌─────────────────────────────────────────────────────────────────────┐
+│                          CLIENT REQUEST                              │
+└───────────────────────────────┬─────────────────────────────────────┘
+                                │
+                                ▼
+┌─────────────────────────────────────────────────────────────────────┐
+│                     AUTH-MIDDLEWARE (This Service)                   │
+│                            Port: 3001                                │
+│                                                                      │
+│   ┌─────────────┐   ┌─────────────┐   ┌─────────────┐              │
+│   │    JWT      │   │   OAuth2    │   │  API Keys   │              │
+│   │ Validation  │   │   Flows     │   │ Management  │              │
+│   └─────────────┘   └─────────────┘   └─────────────┘              │
+└───────────────────────────────┬─────────────────────────────────────┘
+                                │ Authenticated Request
+                                ▼
+                    ┌───────────────────────┐
+                    │   Other Services      │
+                    │   (api-backend, etc.) │
+                    └───────────────────────┘
+```
 
 ## Features
 
-- **Auth0 Token Exchange**: Convert Auth0 tokens to ConHub JWTs
-- **Session Management**: JWT-based with refresh tokens
-- **User Management**: Auto-create users on first login
-- **Role-Based Access**: Admin and user roles from Auth0 permissions
-- **Service-to-Service Auth**: Internal API key verification
+- **JWT Tokens**: Issue and validate JSON Web Tokens
+- **OAuth2 Flows**: GitHub, Google, GitLab OAuth integrations
+- **API Keys**: Generate and manage API keys for programmatic access
+- **Session Management**: Redis-backed session storage
+- **Rate Limiting**: Per-user and per-IP rate limits
+- **Audit Logging**: All authentication events logged
+
+## API Endpoints
+
+### Authentication
+
+| Endpoint | Method | Description |
+|----------|--------|-------------|
+| `/auth/login` | POST | Email/password login |
+| `/auth/register` | POST | User registration |
+| `/auth/logout` | POST | Invalidate session |
+| `/auth/refresh` | POST | Refresh JWT token |
+| `/auth/verify` | GET | Verify JWT token |
+
+### OAuth
+
+| Endpoint | Method | Description |
+|----------|--------|-------------|
+| `/oauth/github` | GET | Start GitHub OAuth flow |
+| `/oauth/github/callback` | GET | GitHub OAuth callback |
+| `/oauth/google` | GET | Start Google OAuth flow |
+| `/oauth/google/callback` | GET | Google OAuth callback |
+
+### API Keys
+
+| Endpoint | Method | Description |
+|----------|--------|-------------|
+| `/api-keys` | GET | List user's API keys |
+| `/api-keys` | POST | Create new API key |
+| `/api-keys/:id` | DELETE | Revoke API key |
+| `/api-keys/validate` | POST | Validate API key |
 
 ## Quick Start
 
@@ -16,79 +72,51 @@ Pure JavaScript authentication middleware using Auth0 for all ConHub microservic
 # Install dependencies
 npm install
 
-# Generate Prisma client
-npm run prisma:generate
+# Configure environment
+cp .env.example .env
 
-# Push database schema
-npm run prisma:push
-
-# Start development server
+# Run development server
 npm run dev
+
+# Run tests
+npm test
 ```
-
-## API Endpoints
-
-| Endpoint | Method | Auth | Description |
-|----------|--------|------|-------------|
-| `/health` | GET | None | Health check |
-| `/api/auth/auth0/exchange` | POST | Auth0 Bearer | Exchange Auth0 → ConHub JWT |
-| `/api/auth/me` | GET | ConHub Bearer | Get current user |
-| `/api/auth/refresh` | POST | None | Refresh access token |
-| `/api/auth/logout` | POST | ConHub Bearer | Revoke session |
-| `/internal/verify` | POST | X-Api-Key | Verify token (service-to-service) |
 
 ## Environment Variables
 
-Copy `.env.example` to `.env` and configure:
+| Variable | Description | Default |
+|----------|-------------|---------|
+| `PORT` | Server port | `3001` |
+| `DATABASE_URL` | PostgreSQL connection | Required |
+| `REDIS_URL` | Redis connection | Required |
+| `JWT_SECRET` | JWT signing secret | Required |
+| `JWT_EXPIRES_IN` | Token expiry | `24h` |
+| `GITHUB_CLIENT_ID` | GitHub OAuth client ID | - |
+| `GITHUB_CLIENT_SECRET` | GitHub OAuth secret | - |
+| `GOOGLE_CLIENT_ID` | Google OAuth client ID | - |
+| `GOOGLE_CLIENT_SECRET` | Google OAuth secret | - |
 
-```bash
-# Auth0
-AUTH0_DOMAIN=your-tenant.auth0.com
-AUTH0_AUDIENCE=https://api.conhub.dev
+## Integration with Other Services
 
-# Database
-DATABASE_URL=postgresql://...
-
-# Internal API
-INTERNAL_API_KEY=your-secret-key
-```
-
-## Using in Other Microservices
-
-### Python (FastAPI/data-connector)
-
-```python
-import httpx
-
-async def verify_token(token: str) -> dict:
-    async with httpx.AsyncClient() as client:
-        response = await client.post(
-            "http://localhost:3010/internal/verify",
-            json={"token": token},
-            headers={"X-Api-Key": INTERNAL_API_KEY}
-        )
-        return response.json()
-```
-
-### JavaScript (Other Node services)
+All ConFuse services call auth-middleware to validate requests:
 
 ```javascript
-const { verifyConHubToken } = require('conhub-auth-middleware/src/services/jwt');
-
-function authMiddleware(req, res, next) {
-  const token = req.headers.authorization?.replace('Bearer ', '');
-  try {
-    req.user = verifyConHubToken(token);
-    next();
-  } catch (error) {
-    res.status(401).json({ error: 'Unauthorized' });
-  }
-}
+// In api-backend or any other service
+const validateToken = async (token) => {
+  const response = await fetch('http://auth-middleware:3001/auth/verify', {
+    headers: { 'Authorization': `Bearer ${token}` }
+  });
+  return response.json();
+};
 ```
 
-## Docker
+## Documentation
 
-```bash
-docker build -t conhub-auth-middleware .
-docker run -p 3010:3010 --env-file .env conhub-auth-middleware
-```
+See the [docs/](docs/) folder for detailed documentation:
+- [Authentication Flow](docs/authentication.md)
+- [OAuth Setup](docs/oauth-setup.md)
+- [API Key Management](docs/api-keys.md)
+
+## License
+
+MIT
