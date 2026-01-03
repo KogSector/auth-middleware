@@ -20,7 +20,9 @@
         "jose": "^5.2.0",
         "jsonwebtoken": "^9.0.2",
         "uuid": "^9.0.1",
-        "winston": "^3.11.0"
+        "winston": "^3.11.0",
+        "kafkajs": "^2.2.4",
+        "amqplib": "^0.10.3"
     },
     "devDependencies": {
         "eslint": "^8.56.0",
