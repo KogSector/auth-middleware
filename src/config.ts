@@ -1,14 +1,41 @@
 /**
- * ConHub Auth Middleware - Configuration
+ * ConFuse Auth Middleware - Configuration
  * 
  * Loads environment variables with validation
  */
 
-require('dotenv').config();
-const fs = require('fs');
-const path = require('path');
+import 'dotenv/config';
+import * as fs from 'fs';
+import * as path from 'path';
 
-function requireEnv(name) {
+interface Auth0Config {
+    domain: string;
+    issuer: string;
+    audience: string;
+    jwksUri: string;
+}
+
+interface JwtConfig {
+    privateKey: string | null;
+    publicKey: string | null;
+    issuer: string;
+    audience: string;
+    expiresIn: string;
+    refreshExpiresIn: string;
+}
+
+interface Config {
+    port: number;
+    nodeEnv: string;
+    auth0: Auth0Config;
+    jwt: JwtConfig;
+    databaseUrl: string;
+    internalApiKey: string | undefined;
+    corsOrigins: string[];
+    featureToggleServiceUrl: string;
+}
+
+function requireEnv(name: string): string {
     const value = process.env[name];
     if (!value) {
         throw new Error(`Missing required environment variable: ${name}`);
@@ -16,7 +43,7 @@ function requireEnv(name) {
     return value;
 }
 
-function loadKeyFile(envVar) {
+function loadKeyFile(envVar: string): string | null {
     const keyPath = process.env[envVar];
     if (!keyPath) return null;
 
@@ -29,7 +56,7 @@ function loadKeyFile(envVar) {
     return fs.readFileSync(fullPath, 'utf-8');
 }
 
-const config = {
+export const config: Config = {
     // Server
     port: parseInt(process.env.PORT || '3010', 10),
     nodeEnv: process.env.NODE_ENV || 'development',
@@ -63,6 +90,7 @@ const config = {
     corsOrigins: (process.env.CORS_ORIGINS || 'http://localhost:3000')
         .split(',')
         .map(s => s.trim()),
-};
 
-module.exports = { config };
+    // Feature Toggle Service
+    featureToggleServiceUrl: process.env.FEATURE_TOGGLE_SERVICE_URL || 'http://localhost:3099',
+};

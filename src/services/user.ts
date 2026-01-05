@@ -1,19 +1,18 @@
 /**
- * ConHub Auth Middleware - User Service
+ * ConFuse Auth Middleware - User Service
  * 
  * Handles user CRUD operations with Prisma
  */
 
-const { PrismaClient } = require('@prisma/client');
+import { PrismaClient } from '@prisma/client';
+import type { User, UserProfile, CreateUserInput } from '../types/index.js';
 
-const prisma = new PrismaClient();
+export const prisma = new PrismaClient();
 
 /**
  * Find or create user by Auth0 subject
- * @param {Object} input - User input
- * @returns {Promise<Object>} - User record
  */
-async function findOrCreateByAuth0(input) {
+export async function findOrCreateByAuth0(input: CreateUserInput): Promise<User> {
     const { auth0Sub, email, name, picture, roles } = input;
 
     // Try to find existing user by auth0Sub
@@ -32,7 +31,7 @@ async function findOrCreateByAuth0(input) {
                 lastLoginAt: new Date(),
             },
         });
-        return user;
+        return user as User;
     }
 
     // Check if email already exists (different auth0 sub)
@@ -51,7 +50,7 @@ async function findOrCreateByAuth0(input) {
                 lastLoginAt: new Date(),
             },
         });
-        return user;
+        return user as User;
     }
 
     // Create new user
@@ -66,36 +65,33 @@ async function findOrCreateByAuth0(input) {
         },
     });
 
-    return user;
+    return user as User;
 }
 
 /**
  * Find user by ID
- * @param {string} id - User ID
- * @returns {Promise<Object|null>} - User or null
  */
-async function findById(id) {
-    return prisma.user.findUnique({
+export async function findById(id: string): Promise<User | null> {
+    const user = await prisma.user.findUnique({
         where: { id },
     });
+    return user as User | null;
 }
 
 /**
  * Find user by auth0Sub
- * @param {string} auth0Sub - Auth0 subject
- * @returns {Promise<Object|null>} - User or null
  */
-async function findByAuth0Sub(auth0Sub) {
-    return prisma.user.findUnique({
+export async function findByAuth0Sub(auth0Sub: string): Promise<User | null> {
+    const user = await prisma.user.findUnique({
         where: { auth0Sub },
     });
+    return user as User | null;
 }
 
 /**
  * Update last login timestamp
- * @param {string} userId - User ID
  */
-async function updateLastLogin(userId) {
+export async function updateLastLogin(userId: string): Promise<void> {
     await prisma.user.update({
         where: { id: userId },
         data: { lastLoginAt: new Date() },
@@ -104,10 +100,8 @@ async function updateLastLogin(userId) {
 
 /**
  * Get user profile (safe for client)
- * @param {Object} user - User record
- * @returns {Object} - User profile
  */
-function toProfile(user) {
+export function toProfile(user: User): UserProfile {
     return {
         id: user.id,
         email: user.email,
@@ -117,12 +111,3 @@ function toProfile(user) {
         createdAt: user.createdAt.toISOString(),
     };
 }
-
-module.exports = {
-    prisma,
-    findOrCreateByAuth0,
-    findById,
-    findByAuth0Sub,
-    updateLastLogin,
-    toProfile,
-};

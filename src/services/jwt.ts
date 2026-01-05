@@ -1,19 +1,18 @@
 /**
- * ConHub Auth Middleware - JWT Service
+ * ConFuse Auth Middleware - JWT Service
  * 
  * Handles ConHub JWT token generation and verification
  */
 
-const jwt = require('jsonwebtoken');
-const { v4: uuidv4 } = require('uuid');
-const { config } = require('../config');
+import jwt, { type SignOptions, type Algorithm } from 'jsonwebtoken';
+import { v4 as uuidv4 } from 'uuid';
+import { config } from '../config.js';
+import type { JwtPayload, RefreshPayload, TokenPair } from '../types/index.js';
 
 /**
  * Parse expires-in string to seconds
- * @param {string} expiresIn - Duration string (e.g., "1h", "7d")
- * @returns {number} - Seconds
  */
-function parseExpiresIn(expiresIn) {
+export function parseExpiresIn(expiresIn: string): number {
     const match = expiresIn.match(/^(\d+)([smhd])$/);
     if (!match) {
         return 3600; // Default 1 hour
@@ -33,16 +32,16 @@ function parseExpiresIn(expiresIn) {
 
 /**
  * Generate ConHub JWT tokens
- * @param {string} userId - User ID
- * @param {string} email - User email
- * @param {string[]} roles - User roles
- * @param {string} sessionId - Session ID
- * @returns {Object} - Token pair with expiry dates
  */
-function generateTokens(userId, email, roles, sessionId) {
+export function generateTokens(
+    userId: string,
+    email: string,
+    roles: string[],
+    sessionId: string
+): TokenPair {
     const jti = uuidv4();
 
-    const payload = {
+    const payload: JwtPayload = {
         sub: userId,
         email,
         roles,
@@ -59,10 +58,10 @@ function generateTokens(userId, email, roles, sessionId) {
     const refreshExpiresAt = new Date(now.getTime() + refreshExpiresIn * 1000);
 
     // Use HMAC if no RSA keys, otherwise RS256
-    const algorithm = config.jwt.privateKey ? 'RS256' : 'HS256';
+    const algorithm: Algorithm = config.jwt.privateKey ? 'RS256' : 'HS256';
     const secret = config.jwt.privateKey || config.internalApiKey || 'dev-secret-key';
 
-    const signOptions = {
+    const signOptions: SignOptions = {
         algorithm,
         issuer: config.jwt.issuer,
         audience: config.jwt.audience,
@@ -73,7 +72,7 @@ function generateTokens(userId, email, roles, sessionId) {
     const accessToken = jwt.sign(payload, secret, signOptions);
 
     // Refresh token has longer expiry
-    const refreshPayload = {
+    const refreshPayload: RefreshPayload = {
         sub: userId,
         sessionId,
         type: 'refresh',
@@ -94,11 +93,9 @@ function generateTokens(userId, email, roles, sessionId) {
 
 /**
  * Verify ConHub JWT token
- * @param {string} token - ConHub JWT token
- * @returns {Object} - Decoded claims
  */
-function verifyConHubToken(token) {
-    const algorithm = config.jwt.publicKey ? 'RS256' : 'HS256';
+export function verifyConHubToken(token: string): JwtPayload {
+    const algorithm: Algorithm = config.jwt.publicKey ? 'RS256' : 'HS256';
     const secret = config.jwt.publicKey || config.internalApiKey || 'dev-secret-key';
 
     try {
@@ -106,23 +103,17 @@ function verifyConHubToken(token) {
             algorithms: [algorithm],
             issuer: config.jwt.issuer,
             audience: config.jwt.audience,
-        });
+        }) as jwt.JwtPayload;
 
         return {
-            sub: payload.sub,
-            email: payload.email,
-            roles: payload.roles,
-            sessionId: payload.sessionId,
-            jti: payload.jti,
+            sub: payload.sub as string,
+            email: payload.email as string,
+            roles: payload.roles as string[],
+            sessionId: payload.sessionId as string,
+            jti: payload.jti as string,
         };
     } catch (error) {
         const message = error instanceof Error ? error.message : 'Unknown error';
         throw new Error(`ConHub token verification failed: ${message}`);
     }
 }
-
-module.exports = {
-    generateTokens,
-    verifyConHubToken,
-    parseExpiresIn,
-};

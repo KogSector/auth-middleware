@@ -1,32 +1,35 @@
 /**
- * ConHub Auth Middleware - Auth Routes
+ * ConFuse Auth Middleware - Auth Routes
  * 
  * Authentication endpoints including Auth0 exchange
  */
 
-const express = require('express');
-const { v4: uuidv4 } = require('uuid');
-const { verifyAuth0Token, extractUserInfo, extractRoles } = require('../services/auth0');
-const { generateTokens, verifyConHubToken } = require('../services/jwt');
-const { findOrCreateByAuth0, findById, toProfile, prisma } = require('../services/user');
-const { requireAuth, requireInternalApiKey } = require('../middleware/auth');
+import { Router, type Request, type Response } from 'express';
+import { v4 as uuidv4 } from 'uuid';
+import { verifyAuth0Token, extractUserInfo, extractRoles } from '../services/auth0.js';
+import { generateTokens, verifyConHubToken } from '../services/jwt.js';
+import { findOrCreateByAuth0, findById, toProfile, prisma } from '../services/user.js';
+import { isAuthBypassEnabled, getBypassUser } from '../services/feature-toggle.js';
+import { requireAuth, requireInternalApiKey } from '../middleware/auth.js';
+import type { AuthenticatedRequest, AuthExchangeResponse, TokenRefreshResponse, TokenVerifyResponse } from '../types/index.js';
 
-const router = express.Router();
+const router = Router();
 
 /**
  * POST /auth/auth0/exchange
  * 
  * Exchange Auth0 access token for ConHub JWT
  */
-router.post('/auth0/exchange', async (req, res) => {
+router.post('/auth0/exchange', async (req: Request, res: Response) => {
     try {
         // Extract Auth0 token
         const authHeader = req.headers.authorization;
         if (!authHeader || !authHeader.startsWith('Bearer ')) {
-            return res.status(401).json({
+            res.status(401).json({
                 error: 'Missing or invalid Authorization header',
                 message: "Expected 'Authorization: Bearer <auth0_access_token>'",
             });
+            return;
         }
 
         const auth0Token = authHeader.slice(7);
@@ -38,10 +41,11 @@ router.post('/auth0/exchange', async (req, res) => {
         } catch (error) {
             const message = error instanceof Error ? error.message : 'Unknown error';
             console.warn('Auth0 token verification failed:', message);
-            return res.status(401).json({
+            res.status(401).json({
                 error: 'Invalid Auth0 token',
                 message,
             });
+            return;
         }
 
         // Extract user info
@@ -49,10 +53,11 @@ router.post('/auth0/exchange', async (req, res) => {
         const roles = extractRoles(claims);
 
         if (!email) {
-            return res.status(400).json({
+            res.status(400).json({
                 error: 'Missing email',
                 message: 'Auth0 token must include email claim',
             });
+            return;
         }
 
         // Find or create user
@@ -75,24 +80,26 @@ router.post('/auth0/exchange', async (req, res) => {
                 userId: user.id,
                 refreshToken: tokens.refreshToken,
                 expiresAt: tokens.refreshExpiresAt,
-                userAgent: req.headers['user-agent'],
-                ipAddress: req.ip,
+                userAgent: req.headers['user-agent'] || null,
+                ipAddress: req.ip || null,
             },
         });
 
         console.log(`Auth0 exchange successful for: ${auth0Sub}`);
 
-        return res.json({
+        const response: AuthExchangeResponse = {
             user: toProfile(user),
             token: tokens.accessToken,
             refreshToken: tokens.refreshToken,
             expiresAt: tokens.expiresAt.toISOString(),
             sessionId,
-        });
+        };
+
+        res.json(response);
 
     } catch (error) {
         console.error('Auth0 exchange error:', error);
-        return res.status(500).json({
+        res.status(500).json({
             error: 'Internal server error',
             message: 'Failed to process authentication',
         });
@@ -102,25 +109,50 @@ router.post('/auth0/exchange', async (req, res) => {
 /**
  * GET /auth/me
  * 
- * Get current authenticated user
+ * Get current authenticated user (with bypass support)
  */
-router.get('/me', requireAuth, async (req, res) => {
+router.get('/me', requireAuth as any, async (req: AuthenticatedRequest, res: Response) => {
     try {
-        const user = await findById(req.user.sub);
-
-        if (!user) {
-            return res.status(404).json({
-                error: 'User not found',
-            });
+        // If using bypass, return demo user directly
+        if (req.user && 'sessionId' in req.user && req.user.id) {
+            // This is a demo user from bypass
+            const bypassEnabled = await isAuthBypassEnabled();
+            if (bypassEnabled) {
+                const demoUser = await getBypassUser();
+                if (demoUser && demoUser.id === req.user.id) {
+                    res.json({
+                        user: {
+                            id: demoUser.id,
+                            email: demoUser.email,
+                            name: demoUser.name,
+                            roles: demoUser.roles,
+                            picture: null,
+                            createdAt: new Date().toISOString(),
+                        },
+                        bypass: true,
+                    });
+                    return;
+                }
+            }
         }
 
-        return res.json({
+        // Normal flow - get user from database
+        const user = await findById(req.user!.sub);
+
+        if (!user) {
+            res.status(404).json({
+                error: 'User not found',
+            });
+            return;
+        }
+
+        res.json({
             user: toProfile(user),
         });
 
     } catch (error) {
         console.error('Get user error:', error);
-        return res.status(500).json({
+        res.status(500).json({
             error: 'Internal server error',
         });
     }
@@ -131,14 +163,15 @@ router.get('/me', requireAuth, async (req, res) => {
  * 
  * Refresh access token using refresh token
  */
-router.post('/refresh', async (req, res) => {
+router.post('/refresh', async (req: Request, res: Response) => {
     try {
         const { refreshToken } = req.body;
 
         if (!refreshToken) {
-            return res.status(400).json({
+            res.status(400).json({
                 error: 'Missing refresh token',
             });
+            return;
         }
 
         // Find session
@@ -148,21 +181,24 @@ router.post('/refresh', async (req, res) => {
         });
 
         if (!session) {
-            return res.status(401).json({
+            res.status(401).json({
                 error: 'Invalid refresh token',
             });
+            return;
         }
 
         if (session.revokedAt) {
-            return res.status(401).json({
+            res.status(401).json({
                 error: 'Session revoked',
             });
+            return;
         }
 
         if (session.expiresAt < new Date()) {
-            return res.status(401).json({
+            res.status(401).json({
                 error: 'Refresh token expired',
             });
+            return;
         }
 
         // Generate new tokens
@@ -182,15 +218,17 @@ router.post('/refresh', async (req, res) => {
             },
         });
 
-        return res.json({
+        const response: TokenRefreshResponse = {
             token: tokens.accessToken,
             refreshToken: tokens.refreshToken,
             expiresAt: tokens.expiresAt.toISOString(),
-        });
+        };
+
+        res.json(response);
 
     } catch (error) {
         console.error('Refresh token error:', error);
-        return res.status(500).json({
+        res.status(500).json({
             error: 'Internal server error',
         });
     }
@@ -201,25 +239,33 @@ router.post('/refresh', async (req, res) => {
  * 
  * Revoke current session
  */
-router.post('/logout', requireAuth, async (req, res) => {
+router.post('/logout', requireAuth as any, async (req: AuthenticatedRequest, res: Response) => {
     try {
+        // Skip session revocation for bypass users
+        if (req.user && 'id' in req.user && !('sub' in req.user)) {
+            res.json({
+                message: 'Logged out successfully (bypass mode)',
+            });
+            return;
+        }
+
         await prisma.session.updateMany({
             where: {
-                id: req.user.sessionId,
-                userId: req.user.sub,
+                id: req.user!.sessionId,
+                userId: req.user!.sub,
             },
             data: {
                 revokedAt: new Date(),
             },
         });
 
-        return res.json({
+        res.json({
             message: 'Logged out successfully',
         });
 
     } catch (error) {
         console.error('Logout error:', error);
-        return res.status(500).json({
+        res.status(500).json({
             error: 'Internal server error',
         });
     }
@@ -230,30 +276,34 @@ router.post('/logout', requireAuth, async (req, res) => {
  * 
  * Verify ConHub token (service-to-service)
  */
-router.post('/verify', requireInternalApiKey, async (req, res) => {
+router.post('/verify', requireInternalApiKey as any, async (req: Request, res: Response) => {
     try {
         const { token } = req.body;
 
         if (!token) {
-            return res.status(400).json({
+            res.status(400).json({
                 error: 'Missing token',
             });
+            return;
         }
 
         const claims = verifyConHubToken(token);
 
-        return res.json({
+        const response: TokenVerifyResponse = {
             valid: true,
             claims,
-        });
+        };
+
+        res.json(response);
 
     } catch (error) {
         const message = error instanceof Error ? error.message : 'Invalid token';
-        return res.json({
+        const response: TokenVerifyResponse = {
             valid: false,
             error: message,
-        });
+        };
+        res.json(response);
     }
 });
 
-module.exports = router;
+export default router;

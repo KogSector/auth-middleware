@@ -1,5 +1,5 @@
 /**
- * ConHub Auth Middleware - Auth0 Service
+ * ConFuse Auth Middleware - Auth0 Service
  * 
  * Handles Auth0 token verification with JWKS caching
  * 
@@ -9,8 +9,9 @@
  * - Optimized role extraction with Set operations
  */
 
-const { createRemoteJWKSet, jwtVerify } = require('jose');
-const { config } = require('../config');
+import { createRemoteJWKSet, jwtVerify, type JWTPayload } from 'jose';
+import { config } from '../config.js';
+import type { Auth0Claims, Auth0UserInfo, CacheStats, CacheEntry } from '../types/index.js';
 
 // =============================================================================
 // DSA: LRU Cache for Token Verification - O(1) get/set operations
@@ -22,19 +23,23 @@ const { config } = require('../config');
  * Space Complexity: O(n) where n = capacity
  */
 class TokenCache {
-    constructor(capacity = 1000, ttlMs = 60000) {
+    private capacity: number;
+    private ttlMs: number;
+    private cache: Map<string, CacheEntry<JWTPayload>>;
+    private hits: number = 0;
+    private misses: number = 0;
+
+    constructor(capacity: number = 1000, ttlMs: number = 60000) {
         this.capacity = capacity;
         this.ttlMs = ttlMs;
         this.cache = new Map();
-        this.hits = 0;
-        this.misses = 0;
     }
 
     /**
      * Hash token for cache key (avoid storing full tokens)
      * Using simple djb2 hash - O(n) where n = token length
      */
-    hashToken(token) {
+    private hashToken(token: string): string {
         let hash = 5381;
         for (let i = 0; i < token.length; i++) {
             hash = ((hash << 5) + hash) ^ token.charCodeAt(i);
@@ -44,10 +49,8 @@ class TokenCache {
 
     /**
      * Get cached verification result
-     * @param {string} token - JWT token
-     * @returns {Object|null} Cached payload or null
      */
-    get(token) {
+    get(token: string): JWTPayload | null {
         const key = this.hashToken(token);
         const entry = this.cache.get(key);
 
@@ -73,16 +76,16 @@ class TokenCache {
 
     /**
      * Cache verification result
-     * @param {string} token - JWT token
-     * @param {Object} payload - Verified payload
      */
-    set(token, payload) {
+    set(token: string, payload: JWTPayload): void {
         const key = this.hashToken(token);
 
         // Evict LRU entry if at capacity - O(1)
         if (this.cache.size >= this.capacity && !this.cache.has(key)) {
             const firstKey = this.cache.keys().next().value;
-            this.cache.delete(firstKey);
+            if (firstKey) {
+                this.cache.delete(firstKey);
+            }
         }
 
         this.cache.set(key, {
@@ -94,7 +97,7 @@ class TokenCache {
     /**
      * Get cache statistics
      */
-    getStats() {
+    getStats(): CacheStats {
         const total = this.hits + this.misses;
         return {
             hits: this.hits,
@@ -110,9 +113,9 @@ class TokenCache {
 const tokenCache = new TokenCache(1000, 60000);
 
 // JWKS remote key set (cached by jose library)
-let jwks = null;
+let jwks: ReturnType<typeof createRemoteJWKSet> | null = null;
 
-function getJWKS() {
+function getJWKS(): ReturnType<typeof createRemoteJWKSet> {
     if (!jwks) {
         jwks = createRemoteJWKSet(new URL(config.auth0.jwksUri));
     }
@@ -121,14 +124,12 @@ function getJWKS() {
 
 /**
  * Verify Auth0 access token with caching
- * @param {string} token - Auth0 access token
- * @returns {Promise<Object>} - Decoded claims
  */
-async function verifyAuth0Token(token) {
+export async function verifyAuth0Token(token: string): Promise<Auth0Claims> {
     // DSA: Check cache first - O(1)
     const cached = tokenCache.get(token);
     if (cached) {
-        return cached;
+        return cached as Auth0Claims;
     }
 
     try {
@@ -140,7 +141,7 @@ async function verifyAuth0Token(token) {
         // DSA: Cache successful verification - O(1)
         tokenCache.set(token, payload);
 
-        return payload;
+        return payload as Auth0Claims;
     } catch (error) {
         const message = error instanceof Error ? error.message : 'Unknown error';
         throw new Error(`Auth0 token verification failed: ${message}`);
@@ -149,12 +150,10 @@ async function verifyAuth0Token(token) {
 
 /**
  * Extract user info from Auth0 claims
- * @param {Object} claims - Auth0 JWT claims
- * @returns {Object} - User info
  */
-function extractUserInfo(claims) {
+export function extractUserInfo(claims: Auth0Claims): Auth0UserInfo {
     // Try to get email from standard claim or namespaced claims
-    let email = claims.email || null;
+    let email: string | null = claims.email || null;
 
     // Check for namespaced email claims (Auth0 custom namespace)
     if (!email) {
@@ -184,11 +183,9 @@ function extractUserInfo(claims) {
 
 /**
  * Extract roles from permissions using Set for O(1) lookup
- * @param {Object} claims - Auth0 JWT claims
- * @returns {string[]} - User roles
  */
-function extractRoles(claims) {
-    const roles = new Set();
+export function extractRoles(claims: Auth0Claims): string[] {
+    const roles = new Set<string>();
 
     if (claims.permissions && Array.isArray(claims.permissions)) {
         // DSA: Use Set for O(1) contains check
@@ -214,14 +211,6 @@ function extractRoles(claims) {
 /**
  * Get token cache statistics (for monitoring)
  */
-function getTokenCacheStats() {
+export function getTokenCacheStats(): CacheStats {
     return tokenCache.getStats();
 }
-
-module.exports = {
-    verifyAuth0Token,
-    extractUserInfo,
-    extractRoles,
-    getTokenCacheStats,
-};
-
