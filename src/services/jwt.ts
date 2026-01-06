@@ -65,7 +65,7 @@ export function generateTokens(
         algorithm,
         issuer: config.jwt.issuer,
         audience: config.jwt.audience,
-        expiresIn: config.jwt.expiresIn,
+        expiresIn: accessExpiresIn,
         keyid: 'conhub-auth-key',
     };
 
@@ -80,7 +80,7 @@ export function generateTokens(
 
     const refreshToken = jwt.sign(refreshPayload, secret, {
         ...signOptions,
-        expiresIn: config.jwt.refreshExpiresIn,
+        expiresIn: refreshExpiresIn,
     });
 
     return {

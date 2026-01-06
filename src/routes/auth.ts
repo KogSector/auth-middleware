@@ -114,7 +114,7 @@ router.post('/auth0/exchange', async (req: Request, res: Response) => {
 router.get('/me', requireAuth as any, async (req: AuthenticatedRequest, res: Response) => {
     try {
         // If using bypass, return demo user directly
-        if (req.user && 'sessionId' in req.user && req.user.id) {
+        if (req.user && 'id' in req.user) {
             // This is a demo user from bypass
             const bypassEnabled = await isAuthBypassEnabled();
             if (bypassEnabled) {
@@ -137,7 +137,9 @@ router.get('/me', requireAuth as any, async (req: AuthenticatedRequest, res: Res
         }
 
         // Normal flow - get user from database
-        const user = await findById(req.user!.sub);
+        // Normal flow - req.user is JwtPayload which has 'sub'
+        const jwtUser = req.user as { sub: string };
+        const user = await findById(jwtUser.sub);
 
         if (!user) {
             res.status(404).json({
@@ -251,8 +253,8 @@ router.post('/logout', requireAuth as any, async (req: AuthenticatedRequest, res
 
         await prisma.session.updateMany({
             where: {
-                id: req.user!.sessionId,
-                userId: req.user!.sub,
+                id: req.user!.sessionId as string,
+                userId: (req.user as { sub: string }).sub,
             },
             data: {
                 revokedAt: new Date(),
@@ -306,4 +308,198 @@ router.post('/verify', requireInternalApiKey as any, async (req: Request, res: R
     }
 });
 
+/**
+ * GET /auth/oauth/url
+ * 
+ * Get OAuth authorization URL for a provider (development mode bypass supported)
+ */
+router.get('/oauth/url', async (req: Request, res: Response) => {
+    try {
+        const { provider } = req.query;
+
+        if (!provider || typeof provider !== 'string') {
+            res.status(400).json({
+                error: 'Missing provider parameter',
+            });
+            return;
+        }
+
+        const validProviders = ['github', 'gitlab', 'bitbucket', 'google'];
+        if (!validProviders.includes(provider.toLowerCase())) {
+            res.status(400).json({
+                error: `Invalid provider: ${provider}. Valid options: ${validProviders.join(', ')}`,
+            });
+            return;
+        }
+
+        // Check if auth bypass is enabled - allow mock OAuth in dev mode
+        const bypassEnabled = await isAuthBypassEnabled();
+        if (bypassEnabled) {
+            // In dev mode, return a mock OAuth URL that redirects back with success
+            const mockCallbackUrl = `http://localhost:3000/auth/callback?provider=${provider}&mock=true&success=true`;
+            res.json({
+                url: mockCallbackUrl,
+                provider,
+                bypass: true,
+                message: 'Development mode - OAuth bypassed',
+            });
+            return;
+        }
+
+        // Production OAuth flow would go here
+        res.status(501).json({
+            error: 'OAuth not configured',
+            message: `${provider} OAuth is not yet configured. Please set up OAuth credentials.`,
+        });
+
+    } catch (error) {
+        console.error('OAuth URL generation error:', error);
+        res.status(500).json({
+            error: 'Internal server error',
+        });
+    }
+});
+
+/**
+ * GET /auth/connections
+ * 
+ * Get user's social connections (development mode returns mock data)
+ */
+router.get('/connections', async (req: Request, res: Response) => {
+    try {
+        // Check if auth bypass is enabled
+        const bypassEnabled = await isAuthBypassEnabled();
+
+        if (bypassEnabled) {
+            // Return mock connections for development - match SocialConnection interface
+            // { id, platform, username, is_active, connected_at, last_sync }
+            res.json({
+                success: true,
+                data: [
+                    {
+                        id: 'github-demo-001',
+                        platform: 'github',
+                        username: 'demo-developer',
+                        is_active: true,
+                        connected_at: new Date().toISOString(),
+                        last_sync: null,
+                    },
+                    {
+                        id: 'gitlab-demo-001',
+                        platform: 'gitlab',
+                        username: null,
+                        is_active: false,
+                        connected_at: null,
+                        last_sync: null,
+                    },
+                    {
+                        id: 'bitbucket-demo-001',
+                        platform: 'bitbucket',
+                        username: null,
+                        is_active: false,
+                        connected_at: null,
+                        last_sync: null,
+                    },
+                ],
+            });
+            return;
+        }
+
+        // TODO: Fetch real connections from database
+        res.json({
+            success: true,
+            data: [],
+        });
+
+    } catch (error) {
+        console.error('Connections fetch error:', error);
+        res.status(500).json({
+            success: false,
+            error: 'Internal server error',
+        });
+    }
+});
+
+
+/**
+ * POST /auth/connections/:provider
+ * 
+ * Connect a social provider (development mode auto-succeeds)
+ */
+router.post('/connections/:provider', async (req: Request, res: Response) => {
+    try {
+        const { provider } = req.params;
+
+        const validProviders = ['github', 'gitlab', 'bitbucket', 'google'];
+        if (!validProviders.includes(provider.toLowerCase())) {
+            res.status(400).json({
+                error: `Invalid provider: ${provider}`,
+            });
+            return;
+        }
+
+        // Check if auth bypass is enabled
+        const bypassEnabled = await isAuthBypassEnabled();
+
+        if (bypassEnabled) {
+            // Auto-succeed in development mode
+            res.json({
+                success: true,
+                provider,
+                username: 'demo-developer',
+                connectedAt: new Date().toISOString(),
+                bypass: true,
+                message: `${provider} connected successfully (dev mode)`,
+            });
+            return;
+        }
+
+        res.status(501).json({
+            error: 'OAuth not configured',
+            message: `${provider} OAuth is not yet configured.`,
+        });
+
+    } catch (error) {
+        console.error('Connection error:', error);
+        res.status(500).json({
+            error: 'Internal server error',
+        });
+    }
+});
+
+/**
+ * DELETE /auth/connections/:provider
+ * 
+ * Disconnect a social provider
+ */
+router.delete('/connections/:provider', async (req: Request, res: Response) => {
+    try {
+        const { provider } = req.params;
+
+        // Check if auth bypass is enabled
+        const bypassEnabled = await isAuthBypassEnabled();
+
+        if (bypassEnabled) {
+            res.json({
+                success: true,
+                provider,
+                message: `${provider} disconnected successfully (dev mode)`,
+            });
+            return;
+        }
+
+        res.json({
+            success: true,
+            provider,
+        });
+
+    } catch (error) {
+        console.error('Disconnect error:', error);
+        res.status(500).json({
+            error: 'Internal server error',
+        });
+    }
+});
+
 export default router;
+

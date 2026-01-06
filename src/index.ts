@@ -21,8 +21,17 @@ app.use(cors({
     origin: config.corsOrigins,
     credentials: true,
     methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-    allowedHeaders: ['Authorization', 'Content-Type', 'X-Api-Key'],
+    allowedHeaders: [
+        'Authorization',
+        'Content-Type',
+        'X-Api-Key',
+        'X-Span-Id',
+        'X-Trace-Id',
+        'X-Request-Id',
+        'X-Correlation-Id'
+    ],
 }));
+
 
 // Body parsing
 app.use(express.json());
