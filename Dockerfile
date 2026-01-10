@@ -1,5 +1,5 @@
-# Build stage - compile TypeScript
-FROM node:20-alpine AS builder
+# Build stage - compile TypeScript (Node.js 24 LTS)
+FROM node:24-alpine AS builder
 
 WORKDIR /app
 
@@ -21,7 +21,7 @@ RUN npx prisma generate
 RUN npm run build
 
 # Production stage
-FROM node:20-alpine
+FROM node:24-alpine
 
 WORKDIR /app
 
