@@ -12,7 +12,7 @@ Authentication and authorization service for the ConFuse platform. Handles JWT t
                                 ▼
 ┌─────────────────────────────────────────────────────────────────────┐
 │                     AUTH-MIDDLEWARE (This Service)                   │
-│                            Port: 3001                                │
+│                            Port: 3010                               │
 │                                                                      │
 │   ┌─────────────┐   ┌─────────────┐   ┌─────────────┐              │
 │   │    JWT      │   │   OAuth2    │   │  API Keys   │              │
