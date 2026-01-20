@@ -10,6 +10,10 @@ import helmet from 'helmet';
 import { config } from './config.js';
 import authRoutes from './routes/auth.js';
 import healthRoutes from './routes/health.js';
+import { initFeatureToggle } from './services/feature-toggle.js';
+
+// Initialize feature toggle client
+initFeatureToggle();
 
 const app = express();
 
