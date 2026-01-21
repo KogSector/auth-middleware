@@ -1,42 +1,46 @@
 /**
  * ConFuse Auth Middleware - Feature Toggle Service
  * 
- * Uses the @confuse/feature-toggle-sdk for toggle management.
+ * HTTP client for feature toggle service with caching.
+ * Note: This is an inline implementation for Docker builds.
+ * For local development, use @confuse/feature-toggle-sdk.
  */
 
-import {
-    initToggleClient,
-    getToggleClient,
-    type DemoUser
-} from '@confuse/feature-toggle-sdk';
 import { config } from '../config.js';
 
-// Re-export DemoUser type for backwards compatibility
-export type { DemoUser } from '@confuse/feature-toggle-sdk';
+// Re-export DemoUser type
+export interface DemoUser {
+    id: string;
+    email: string;
+    name: string;
+    roles: string[];
+    sessionId: string;
+}
 
-// Track if client is initialized
-let initialized = false;
+interface Toggle {
+    enabled: boolean;
+    description: string;
+    category: string;
+    categoryType?: string;
+    demoUser?: DemoUser;
+}
+
+interface ApiResponse<T> {
+    success: boolean;
+    data?: T;
+    error?: string;
+}
+
+// Cache configuration
+const CACHE_TTL_MS = 5000;
+let toggleCache: { data: Record<string, Toggle>; expiresAt: number } | null = null;
+let demoUserCache: { data: DemoUser; expiresAt: number } | null = null;
 
 /**
- * Initialize the toggle client (call once at startup)
+ * Initialize the toggle client (no-op for Docker build compatibility)
  */
 export function initFeatureToggle(): void {
-    if (initialized) return;
-
-    initToggleClient({
-        serviceUrl: config.featureToggleServiceUrl,
-        serviceName: 'auth-middleware',
-        cacheTtlMs: 5000,
-        timeoutMs: 2000,
-        retryAttempts: 2,
-        defaultEnabled: false, // Fail-safe: disable features when service unavailable
-        onServiceUnavailable: (error) => {
-            console.warn('[AuthMiddleware] Feature toggle service unavailable:', error.message);
-        },
-    });
-
-    initialized = true;
-    console.log('[AuthMiddleware] Feature toggle client initialized');
+    console.log('[AuthMiddleware] Feature toggle client initialized (inline mode)');
 }
 
 /**
@@ -44,10 +48,9 @@ export function initFeatureToggle(): void {
  */
 export async function isAuthBypassEnabled(): Promise<boolean> {
     try {
-        const client = getToggleClient();
-        return await client.isEnabled('authBypass');
+        const toggle = await getToggle('authBypass');
+        return toggle?.enabled ?? false;
     } catch (error) {
-        // Client not initialized or other error
         console.warn('Failed to check auth bypass status:',
             error instanceof Error ? error.message : 'Unknown error');
         return false;
@@ -58,12 +61,85 @@ export async function isAuthBypassEnabled(): Promise<boolean> {
  * Get the demo user for bypass mode
  */
 export async function getBypassUser(): Promise<DemoUser | null> {
+    // Check cache
+    if (demoUserCache && Date.now() < demoUserCache.expiresAt) {
+        return demoUserCache.data;
+    }
+
     try {
-        const client = getToggleClient();
-        const demoUser = await client.getDemoUser();
-        return demoUser;
+        const response = await fetch(
+            `${config.featureToggleServiceUrl}/api/toggles/auth-bypass/user`,
+            {
+                method: 'GET',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-Service-Name': 'auth-middleware',
+                },
+                signal: AbortSignal.timeout(2000),
+            }
+        );
+
+        if (!response.ok) {
+            return null;
+        }
+
+        const data = await response.json() as ApiResponse<DemoUser>;
+
+        if (data.success && data.data) {
+            demoUserCache = {
+                data: data.data,
+                expiresAt: Date.now() + CACHE_TTL_MS,
+            };
+            return data.data;
+        }
+
+        return null;
     } catch (error) {
         console.warn('Failed to get bypass user:',
+            error instanceof Error ? error.message : 'Unknown error');
+        return null;
+    }
+}
+
+/**
+ * Get a specific toggle
+ */
+async function getToggle(name: string): Promise<Toggle | null> {
+    // Check cache
+    if (toggleCache && Date.now() < toggleCache.expiresAt) {
+        return toggleCache.data[name] || null;
+    }
+
+    try {
+        const response = await fetch(
+            `${config.featureToggleServiceUrl}/api/toggles`,
+            {
+                method: 'GET',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-Service-Name': 'auth-middleware',
+                },
+                signal: AbortSignal.timeout(2000),
+            }
+        );
+
+        if (!response.ok) {
+            return null;
+        }
+
+        const data = await response.json() as ApiResponse<Record<string, Toggle>>;
+
+        if (data.success && data.data) {
+            toggleCache = {
+                data: data.data,
+                expiresAt: Date.now() + CACHE_TTL_MS,
+            };
+            return data.data[name] || null;
+        }
+
+        return null;
+    } catch (error) {
+        console.warn('Failed to get toggle:',
             error instanceof Error ? error.message : 'Unknown error');
         return null;
     }
@@ -74,8 +150,8 @@ export async function getBypassUser(): Promise<DemoUser | null> {
  */
 export async function isToggleEnabled(toggleName: string): Promise<boolean> {
     try {
-        const client = getToggleClient();
-        return await client.isEnabled(toggleName);
+        const toggle = await getToggle(toggleName);
+        return toggle?.enabled ?? false;
     } catch (error) {
         console.warn(`Failed to check toggle '${toggleName}':`,
             error instanceof Error ? error.message : 'Unknown error');
@@ -87,10 +163,6 @@ export async function isToggleEnabled(toggleName: string): Promise<boolean> {
  * Clear the toggle cache (useful for testing)
  */
 export function clearToggleCache(): void {
-    try {
-        const client = getToggleClient();
-        client.invalidateCache();
-    } catch {
-        // Client not initialized, ignore
-    }
+    toggleCache = null;
+    demoUserCache = null;
 }
