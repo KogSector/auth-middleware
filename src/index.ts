@@ -13,11 +13,14 @@ import healthRoutes from './routes/health.js';
 import { initFeatureToggle } from './services/feature-toggle.js';
 
 // Initialize feature toggle client
+console.log('[AUTH-MIDDLEWARE] Initializing feature toggle client...');
 initFeatureToggle();
+console.log('[AUTH-MIDDLEWARE] Feature toggle client initialized');
 
 const app = express();
 
 // Security middleware
+console.log('[AUTH-MIDDLEWARE] Setting up security middleware...');
 app.use(helmet());
 
 // CORS configuration
@@ -43,9 +46,15 @@ app.use(express.json());
 // Request logging
 app.use((req: Request, res: Response, next: NextFunction) => {
     const start = Date.now();
+    const requestId = `req_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+    console.log(`[AUTH-MIDDLEWARE] [REQUEST] [${requestId}] ${req.method} ${req.path} started`, {
+        headers: { authorization: req.headers.authorization ? 'present' : 'absent', 'x-service-name': req.headers['x-service-name'] },
+        ip: req.ip,
+    });
     res.on('finish', () => {
         const duration = Date.now() - start;
-        console.log(`${req.method} ${req.path} ${res.statusCode} ${duration}ms`);
+        const level = res.statusCode >= 400 ? 'ERROR' : 'SUCCESS';
+        console.log(`[AUTH-MIDDLEWARE] [RESPONSE] [${requestId}] [${level}] ${req.method} ${req.path} ${res.statusCode} ${duration}ms`);
     });
     next();
 });
@@ -62,6 +71,7 @@ app.use('/internal', authRoutes);
 
 // 404 handler
 app.use((req: Request, res: Response) => {
+    console.log(`[AUTH-MIDDLEWARE] [404] Route not found: ${req.method} ${req.path}`);
     res.status(404).json({
         error: 'Not found',
         path: req.path,
@@ -70,7 +80,7 @@ app.use((req: Request, res: Response) => {
 
 // Error handler
 app.use((err: Error, req: Request, res: Response, _next: NextFunction) => {
-    console.error('Unhandled error:', err);
+    console.error('[AUTH-MIDDLEWARE] [ERROR] Unhandled error:', err.message, err.stack);
     res.status(500).json({
         error: 'Internal server error',
         message: config.nodeEnv === 'development' ? err.message : undefined,
@@ -79,6 +89,13 @@ app.use((err: Error, req: Request, res: Response, _next: NextFunction) => {
 
 // Start server
 const PORT = config.port;
+
+console.log('[AUTH-MIDDLEWARE] ==================================================');
+console.log('[AUTH-MIDDLEWARE] Starting Auth Middleware Service...');
+console.log('[AUTH-MIDDLEWARE] ==================================================');
+console.log('[AUTH-MIDDLEWARE] Timestamp:', new Date().toISOString());
+console.log('[AUTH-MIDDLEWARE] Node version:', process.version);
+console.log('[AUTH-MIDDLEWARE] Environment:', config.nodeEnv);
 
 app.listen(PORT, () => {
     console.log('');

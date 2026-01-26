@@ -40,18 +40,22 @@ let demoUserCache: { data: DemoUser; expiresAt: number } | null = null;
  * Initialize the toggle client (no-op for Docker build compatibility)
  */
 export function initFeatureToggle(): void {
-    console.log('[AuthMiddleware] Feature toggle client initialized (inline mode)');
+    console.log('[FEATURE-TOGGLE] Feature toggle client initialized (inline mode)');
+    console.log(`[FEATURE-TOGGLE] Service URL: ${config.featureToggleServiceUrl}`);
 }
 
 /**
  * Check if auth bypass is enabled
  */
 export async function isAuthBypassEnabled(): Promise<boolean> {
+    console.log('[FEATURE-TOGGLE] Checking if auth bypass is enabled...');
     try {
         const toggle = await getToggle('authBypass');
-        return toggle?.enabled ?? false;
+        const enabled = toggle?.enabled ?? false;
+        console.log(`[FEATURE-TOGGLE] Auth bypass enabled: ${enabled}`);
+        return enabled;
     } catch (error) {
-        console.warn('Failed to check auth bypass status:',
+        console.warn('[FEATURE-TOGGLE] Failed to check auth bypass status:',
             error instanceof Error ? error.message : 'Unknown error');
         return false;
     }
@@ -61,8 +65,10 @@ export async function isAuthBypassEnabled(): Promise<boolean> {
  * Get the demo user for bypass mode
  */
 export async function getBypassUser(): Promise<DemoUser | null> {
+    console.log('[FEATURE-TOGGLE] Getting bypass demo user...');
     // Check cache
     if (demoUserCache && Date.now() < demoUserCache.expiresAt) {
+        console.log('[FEATURE-TOGGLE] Demo user found in cache');
         return demoUserCache.data;
     }
 
@@ -86,6 +92,7 @@ export async function getBypassUser(): Promise<DemoUser | null> {
         const data = await response.json() as ApiResponse<DemoUser>;
 
         if (data.success && data.data) {
+            console.log('[FEATURE-TOGGLE] Demo user fetched and cached');
             demoUserCache = {
                 data: data.data,
                 expiresAt: Date.now() + CACHE_TTL_MS,
@@ -93,9 +100,10 @@ export async function getBypassUser(): Promise<DemoUser | null> {
             return data.data;
         }
 
+        console.log('[FEATURE-TOGGLE] No demo user found in response');
         return null;
     } catch (error) {
-        console.warn('Failed to get bypass user:',
+        console.warn('[FEATURE-TOGGLE] Failed to get bypass user:',
             error instanceof Error ? error.message : 'Unknown error');
         return null;
     }
@@ -105,8 +113,10 @@ export async function getBypassUser(): Promise<DemoUser | null> {
  * Get a specific toggle
  */
 async function getToggle(name: string): Promise<Toggle | null> {
+    console.log(`[FEATURE-TOGGLE] Getting toggle: ${name}`);
     // Check cache
     if (toggleCache && Date.now() < toggleCache.expiresAt) {
+        console.log(`[FEATURE-TOGGLE] Toggle '${name}' found in cache`);
         return toggleCache.data[name] || null;
     }
 
@@ -130,6 +140,7 @@ async function getToggle(name: string): Promise<Toggle | null> {
         const data = await response.json() as ApiResponse<Record<string, Toggle>>;
 
         if (data.success && data.data) {
+            console.log(`[FEATURE-TOGGLE] Toggles fetched and cached (${Object.keys(data.data).length} toggles)`);
             toggleCache = {
                 data: data.data,
                 expiresAt: Date.now() + CACHE_TTL_MS,
@@ -137,9 +148,10 @@ async function getToggle(name: string): Promise<Toggle | null> {
             return data.data[name] || null;
         }
 
+        console.log('[FEATURE-TOGGLE] No toggle data in response');
         return null;
     } catch (error) {
-        console.warn('Failed to get toggle:',
+        console.warn(`[FEATURE-TOGGLE] Failed to get toggle '${name}':`,
             error instanceof Error ? error.message : 'Unknown error');
         return null;
     }
@@ -149,11 +161,14 @@ async function getToggle(name: string): Promise<Toggle | null> {
  * Check if a specific toggle is enabled
  */
 export async function isToggleEnabled(toggleName: string): Promise<boolean> {
+    console.log(`[FEATURE-TOGGLE] Checking if toggle '${toggleName}' is enabled...`);
     try {
         const toggle = await getToggle(toggleName);
-        return toggle?.enabled ?? false;
+        const enabled = toggle?.enabled ?? false;
+        console.log(`[FEATURE-TOGGLE] Toggle '${toggleName}' enabled: ${enabled}`);
+        return enabled;
     } catch (error) {
-        console.warn(`Failed to check toggle '${toggleName}':`,
+        console.warn(`[FEATURE-TOGGLE] Failed to check toggle '${toggleName}':`,
             error instanceof Error ? error.message : 'Unknown error');
         return false;
     }
@@ -163,6 +178,7 @@ export async function isToggleEnabled(toggleName: string): Promise<boolean> {
  * Clear the toggle cache (useful for testing)
  */
 export function clearToggleCache(): void {
+    console.log('[FEATURE-TOGGLE] Clearing toggle cache');
     toggleCache = null;
     demoUserCache = null;
 }
