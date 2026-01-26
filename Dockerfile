@@ -1,7 +1,11 @@
 # Build stage - compile TypeScript (Node.js 24 LTS)
-FROM node:24-alpine AS builder
+# Using slim (Debian) instead of Alpine for Prisma OpenSSL compatibility
+FROM node:24-slim AS builder
 
 WORKDIR /app
+
+# Install OpenSSL for Prisma
+RUN apt-get update && apt-get install -y openssl && rm -rf /var/lib/apt/lists/*
 
 # Copy package files
 COPY package*.json ./
@@ -21,9 +25,12 @@ RUN npx prisma generate
 RUN npm run build
 
 # Production stage
-FROM node:24-alpine
+FROM node:24-slim
 
 WORKDIR /app
+
+# Install OpenSSL and wget for health checks
+RUN apt-get update && apt-get install -y openssl wget && rm -rf /var/lib/apt/lists/*
 
 # Copy package files
 COPY package*.json ./

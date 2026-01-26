@@ -61,13 +61,13 @@ export const config: Config = {
     port: parseInt(process.env.PORT || '3010', 10),
     nodeEnv: process.env.NODE_ENV || 'development',
 
-    // Auth0
+    // Auth0 (optional when AUTH_BYPASS_ENABLED=true)
     auth0: {
-        domain: requireEnv('AUTH0_DOMAIN'),
-        issuer: requireEnv('AUTH0_ISSUER'),
-        audience: requireEnv('AUTH0_AUDIENCE'),
+        domain: process.env.AUTH0_DOMAIN || 'dev-placeholder.auth0.com',
+        issuer: process.env.AUTH0_ISSUER || 'https://dev-placeholder.auth0.com/',
+        audience: process.env.AUTH0_AUDIENCE || 'confuse-api',
         jwksUri: process.env.AUTH0_JWKS_URI ||
-            `https://${process.env.AUTH0_DOMAIN}/.well-known/jwks.json`,
+            `https://${process.env.AUTH0_DOMAIN || 'dev-placeholder.auth0.com'}/.well-known/jwks.json`,
     },
 
     // ConHub JWT
