@@ -33,6 +33,7 @@ interface Config {
     internalApiKey: string | undefined;
     corsOrigins: string[];
     featureToggleServiceUrl: string;
+    frontendUrl: string;
 }
 
 function requireEnv(name: string): string {
@@ -93,4 +94,7 @@ export const config: Config = {
 
     // Feature Toggle Service
     featureToggleServiceUrl: process.env.FEATURE_TOGGLE_SERVICE_URL || 'http://localhost:3099',
+    
+    // Frontend URL for OAuth callbacks
+    frontendUrl: process.env.FRONTEND_URL || 'http://localhost:3000',
 };

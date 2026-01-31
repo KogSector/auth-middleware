@@ -12,6 +12,7 @@ import { findOrCreateByAuth0, findById, toProfile, prisma } from '../services/us
 import { isAuthBypassEnabled, getBypassUser } from '../services/feature-toggle.js';
 import { requireAuth, requireInternalApiKey } from '../middleware/auth.js';
 import type { AuthenticatedRequest, AuthExchangeResponse, TokenRefreshResponse, TokenVerifyResponse } from '../types/index.js';
+import { config } from '../config.js';
 
 const router = Router();
 
@@ -336,7 +337,7 @@ router.get('/oauth/url', async (req: Request, res: Response) => {
         const bypassEnabled = await isAuthBypassEnabled();
         if (bypassEnabled) {
             // In dev mode, return a mock OAuth URL that redirects back with success
-            const mockCallbackUrl = `http://localhost:3000/auth/callback?provider=${provider}&mock=true&success=true`;
+            const mockCallbackUrl = `${config.frontendUrl}/auth/callback?provider=${provider}&mock=true&success=true`;
             res.json({
                 url: mockCallbackUrl,
                 provider,
