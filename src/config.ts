@@ -24,11 +24,18 @@ interface JwtConfig {
     refreshExpiresIn: string;
 }
 
+interface RedisConfig {
+    url: string;
+    password: string | undefined;
+    tokenCacheTtlSeconds: number;
+}
+
 interface Config {
     port: number;
     nodeEnv: string;
     auth0: Auth0Config;
     jwt: JwtConfig;
+    redis: RedisConfig;
     databaseUrl: string;
     internalApiKey: string | undefined;
     corsOrigins: string[];
@@ -81,6 +88,13 @@ export const config: Config = {
         refreshExpiresIn: process.env.JWT_REFRESH_EXPIRES_IN || '7d',
     },
 
+    // Redis for token caching and rate limiting
+    redis: {
+        url: process.env.REDIS_URL || 'redis://localhost:6379',
+        password: process.env.REDIS_PASSWORD,
+        tokenCacheTtlSeconds: parseInt(process.env.TOKEN_CACHE_TTL_SECONDS || '900', 10), // 15 minutes
+    },
+
     // Database
     databaseUrl: requireEnv('DATABASE_URL'),
 
@@ -94,7 +108,7 @@ export const config: Config = {
 
     // Feature Toggle Service
     featureToggleServiceUrl: process.env.FEATURE_TOGGLE_SERVICE_URL || 'http://localhost:3099',
-    
+
     // Frontend URL for OAuth callbacks
     frontendUrl: process.env.FRONTEND_URL || 'http://localhost:3000',
 };

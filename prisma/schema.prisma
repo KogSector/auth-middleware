@@ -1,4 +1,5 @@
 // Prisma schema for ConHub Auth Middleware
+// Multi-tenant data isolation with workspaces, knowledge bases, and user preferences
 
 generator client {
   provider = "prisma-client-js"
@@ -8,6 +9,10 @@ datasource db {
   provider = "postgresql"
   url      = env("DATABASE_URL")
 }
+
+// ============================================================================
+// Core User Model
+// ============================================================================
 
 model User {
   id            String    @id @default(uuid()) @db.Uuid
@@ -20,7 +25,12 @@ model User {
   updatedAt     DateTime  @updatedAt @map("updated_at")
   lastLoginAt   DateTime? @map("last_login_at")
   
-  sessions      Session[]
+  // Relationships
+  sessions           Session[]
+  workspaceMemberships WorkspaceMember[]
+  apiKeys            ApiKey[]
+  preferences        UserPreference?
+  ownedWorkspaces    Workspace[]       @relation("WorkspaceOwner")
   
   @@map("users")
 }
@@ -41,3 +51,142 @@ model Session {
   @@index([refreshToken])
   @@map("sessions")
 }
+
+// ============================================================================
+// Workspace & Multi-Tenant Data Isolation
+// ============================================================================
+
+model Workspace {
+  id            String    @id @default(uuid()) @db.Uuid
+  name          String
+  slug          String    @unique
+  description   String?
+  ownerId       String    @map("owner_id") @db.Uuid
+  createdAt     DateTime  @default(now()) @map("created_at")
+  updatedAt     DateTime  @updatedAt @map("updated_at")
+  isDefault     Boolean   @default(false) @map("is_default")
+  
+  // Workspace settings (JSON for flexibility)
+  settings      Json?     @default("{}")
+  
+  // Relationships
+  owner         User              @relation("WorkspaceOwner", fields: [ownerId], references: [id], onDelete: Cascade)
+  members       WorkspaceMember[]
+  knowledgeBases KnowledgeBase[]
+  
+  @@index([ownerId])
+  @@index([slug])
+  @@map("workspaces")
+}
+
+model WorkspaceMember {
+  id          String    @id @default(uuid()) @db.Uuid
+  workspaceId String    @map("workspace_id") @db.Uuid
+  userId      String    @map("user_id") @db.Uuid
+  role        String    @default("member") // owner, admin, member, viewer
+  joinedAt    DateTime  @default(now()) @map("joined_at")
+  
+  workspace   Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  @@unique([workspaceId, userId])
+  @@index([userId])
+  @@map("workspace_members")
+}
+
+// ============================================================================
+// Knowledge Base & Data Sources
+// ============================================================================
+
+model KnowledgeBase {
+  id              String    @id @default(uuid()) @db.Uuid
+  workspaceId     String    @map("workspace_id") @db.Uuid
+  name            String
+  description     String?
+  type            String    @default("general") // general, code, docs, chat
+  status          String    @default("active")  // active, archived, processing
+  embeddingModel  String    @default("all-MiniLM-L6-v2") @map("embedding_model")
+  createdAt       DateTime  @default(now()) @map("created_at")
+  updatedAt       DateTime  @updatedAt @map("updated_at")
+  
+  // External references (for multi-db architecture)
+  milvusCollection String?  @map("milvus_collection")
+  neo4jNamespace   String?  @map("neo4j_namespace")
+  mongoCollection  String?  @map("mongo_collection")
+  
+  // Configuration
+  config          Json?     @default("{}")
+  
+  // Statistics
+  documentCount   Int       @default(0) @map("document_count")
+  embeddingCount  Int       @default(0) @map("embedding_count")
+  lastSyncAt      DateTime? @map("last_sync_at")
+  
+  workspace       Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  
+  @@unique([workspaceId, name])
+  @@index([workspaceId])
+  @@map("knowledge_bases")
+}
+
+// ============================================================================
+// API Keys for Programmatic Access
+// ============================================================================
+
+model ApiKey {
+  id          String    @id @default(uuid()) @db.Uuid
+  userId      String    @map("user_id") @db.Uuid
+  name        String
+  keyHash     String    @unique @map("key_hash")  // Hashed API key
+  keyPrefix   String    @map("key_prefix")        // First 8 chars for display
+  scopes      String[]  @default(["read"])        // read, write, admin
+  expiresAt   DateTime? @map("expires_at")
+  createdAt   DateTime  @default(now()) @map("created_at")
+  lastUsedAt  DateTime? @map("last_used_at")
+  revokedAt   DateTime? @map("revoked_at")
+  
+  // Rate limiting
+  rateLimit   Int       @default(1000) @map("rate_limit")  // requests per hour
+  
+  user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  @@index([userId])
+  @@index([keyHash])
+  @@map("api_keys")
+}
+
+// ============================================================================
+// User Preferences & Settings
+// ============================================================================
+
+model UserPreference {
+  id                  String    @id @default(uuid()) @db.Uuid
+  userId              String    @unique @map("user_id") @db.Uuid
+  
+  // UI Preferences
+  theme               String    @default("system")  // light, dark, system
+  language            String    @default("en")
+  timezone            String    @default("UTC")
+  
+  // AI/Model Preferences
+  defaultModel        String    @default("gpt-4") @map("default_model")
+  embeddingModel      String    @default("all-MiniLM-L6-v2") @map("embedding_model")
+  
+  // Feature Preferences
+  enableNotifications Boolean   @default(true) @map("enable_notifications")
+  emailDigest         String    @default("weekly") @map("email_digest") // daily, weekly, never
+  
+  // Default workspace
+  defaultWorkspaceId  String?   @map("default_workspace_id") @db.Uuid
+  
+  // Custom settings (JSON for flexibility)
+  customSettings      Json?     @default("{}") @map("custom_settings")
+  
+  createdAt           DateTime  @default(now()) @map("created_at")
+  updatedAt           DateTime  @updatedAt @map("updated_at")
+  
+  user                User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  @@map("user_preferences")
+}
+

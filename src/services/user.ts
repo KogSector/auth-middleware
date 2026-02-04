@@ -65,6 +65,34 @@ export async function findOrCreateByAuth0(input: CreateUserInput): Promise<User>
         },
     });
 
+    // Create default workspace for new user
+    try {
+        const workspaceName = name ? `${name}'s Workspace` : 'My Workspace';
+        await prisma.workspace.create({
+            data: {
+                name: workspaceName,
+                slug: `user-${user.id.slice(0, 8)}-${Date.now().toString(36)}`,
+                ownerId: user.id,
+                isDefault: true,
+                members: {
+                    create: {
+                        userId: user.id,
+                        role: 'owner',
+                    },
+                },
+            },
+        });
+
+        // Create default preferences
+        await prisma.userPreference.create({
+            data: {
+                userId: user.id,
+            },
+        });
+    } catch (error) {
+        console.warn('[USER] Failed to create default workspace/preferences:', error);
+    }
+
     return user as User;
 }
 

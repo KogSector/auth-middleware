@@ -67,6 +67,7 @@ export interface JwtPayload {
     roles: string[];
     sessionId: string;
     jti: string;
+    workspaceId?: string;  // Current active workspace
 }
 
 export interface RefreshPayload {
@@ -172,3 +173,56 @@ export interface CacheEntry<T> {
     payload: T;
     timestamp: number;
 }
+
+// ============================================================================
+// Workspace Types
+// ============================================================================
+
+export interface Workspace {
+    id: string;
+    name: string;
+    slug: string;
+    description: string | null;
+    ownerId: string;
+    isDefault: boolean;
+    settings: Record<string, unknown>;
+    createdAt: Date;
+    updatedAt: Date;
+}
+
+export interface WorkspaceMember {
+    id: string;
+    workspaceId: string;
+    userId: string;
+    role: 'owner' | 'admin' | 'member' | 'viewer';
+    joinedAt: Date;
+}
+
+export interface KnowledgeBase {
+    id: string;
+    workspaceId: string;
+    name: string;
+    description: string | null;
+    type: 'general' | 'code' | 'docs' | 'chat';
+    status: 'active' | 'archived' | 'processing';
+    embeddingModel: string;
+    milvusCollection: string | null;
+    neo4jNamespace: string | null;
+    mongoCollection: string | null;
+    documentCount: number;
+    embeddingCount: number;
+    createdAt: Date;
+    updatedAt: Date;
+}
+
+// ============================================================================
+// User Context (for propagation across services)
+// ============================================================================
+
+export interface UserContext {
+    userId: string;
+    email: string;
+    workspaceId: string;
+    roles: string[];
+}
+
