@@ -4,6 +4,7 @@
  *
  * Publishes authentication events to Kafka for audit logging
  * and inter-service communication.
+ * Supports both self-hosted Kafka and Confluent Cloud.
  */
 
 const { Kafka, Partitioners, logLevel } = require('kafkajs');
@@ -51,6 +52,44 @@ class ConsistentHashPartitioner {
     }
 }
 
+/**
+ * Create Kafka client configuration from environment
+ * @returns {Object} KafkaJS configuration
+ */
+function createKafkaConfig(clientId) {
+    const environment = process.env.ENVIRONMENT || 'development';
+
+    if (environment === 'production') {
+        return {
+            clientId: clientId,
+            brokers: [process.env.CONFLUENT_BOOTSTRAP_SERVERS],
+            ssl: true,
+            sasl: {
+                mechanism: 'plain',
+                username: process.env.CONFLUENT_API_KEY,
+                password: process.env.CONFLUENT_API_SECRET,
+            },
+            logLevel: logLevel.WARN,
+            retry: {
+                retries: 3,
+                initialRetryTime: 1000,
+                maxRetryTime: 30000,
+            },
+        };
+    } else {
+        return {
+            clientId: clientId,
+            brokers: (process.env.KAFKA_BROKERS || 'localhost:9092').split(','),
+            logLevel: logLevel.WARN,
+            retry: {
+                retries: 3,
+                initialRetryTime: 1000,
+                maxRetryTime: 30000,
+            },
+        };
+    }
+}
+
 class KafkaClient {
     static TOPICS = {
         AUTH_EVENTS: 'auth.events',
@@ -67,25 +106,27 @@ class KafkaClient {
      */
     constructor(config = {}) {
         this.config = {
-            brokers: config.brokers || process.env.KAFKA_BROKERS || 'localhost:9092',
             clientId: config.clientId || 'auth-middleware',
             numPartitions: config.numPartitions || 3,
         };
 
-        this.kafka = new Kafka({
-            clientId: this.config.clientId,
-            brokers: this.config.brokers.split(','),
-            logLevel: logLevel.WARN,
-            retry: {
-                retries: 3,
-                initialRetryTime: 1000,
-                maxRetryTime: 30000,
-            },
-        });
+        const kafkaConfig = createKafkaConfig(this.config.clientId);
+
+        // Override brokers if manually specified (for testing)
+        if (config.brokers) {
+            kafkaConfig.brokers = config.brokers.split(',');
+        }
+
+        this.kafka = new Kafka(kafkaConfig);
 
         this.producer = null;
         this.consumer = null;
         this.partitioner = new ConsistentHashPartitioner(this.config.numPartitions);
+
+        // Log connection type
+        if (process.env.ENVIRONMENT === 'production') {
+            logger.info('Using SASL_SSL for Confluent Cloud connection');
+        }
     }
 
     /**
