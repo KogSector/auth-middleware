@@ -1,0 +1,68 @@
+# =============================================================================
+# Docker Ignore - Node.js Service
+# =============================================================================
+
+# Git
+.git
+.gitignore
+.gitattributes
+
+# Environment files (NEVER include in images)
+.env
+.env.*
+*.env
+.env.local
+.env.development
+.env.production
+
+# IDE/Editor
+.vscode
+.idea
+*.swp
+*.swo
+*~
+
+# Node.js
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.npm
+.yarn
+
+# Build artifacts
+dist/
+build/
+*.tsbuildinfo
+
+# Documentation
+docs/
+*.md
+!README.md
+LICENSE
+
+# Tests (not needed in production image)
+tests/
+test/
+__tests__/
+*.test.js
+*.test.ts
+*.spec.js
+*.spec.ts
+jest.config.*
+coverage/
+
+# CI/CD
+.github/
+.gitlab-ci.yml
+.dockerignore
+Dockerfile*
+
+# Logs
+*.log
+logs/
+
+# Temporary files
+tmp/
+temp/
+*.tmp
