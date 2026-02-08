@@ -23,8 +23,7 @@
         "jsonwebtoken": "^9.0.2",
         "uuid": "^9.0.1",
         "winston": "^3.11.0",
-        "winston": "^3.11.0",
-        "@confuse/events": "file:../../shared/typescript/confuse-events",
+        "@confuse/events": "file:../../shared-middleware/typescript/confuse-events",
         "amqplib": "^0.10.3"
     },
     "devDependencies": {

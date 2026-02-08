@@ -5,7 +5,7 @@
  */
 
 import { KafkaClient } from '../messaging/index.js';
-import { logger } from ('../utils/logger.js'); // Assuming logger import path
+import logger from '../utils/logger.js';
 
 export const kafkaClient = new KafkaClient({
     clientId: 'auth-middleware',

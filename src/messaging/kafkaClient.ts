@@ -24,6 +24,9 @@ class KafkaClient {
         AUDIT_LOG: 'audit.log', // Not in shared topics? Keeping as is/legacy.
     };
 
+    private producer: EventProducer;
+    public isConnected: boolean;
+
     constructor(config = {}) {
         // We use KafkaConfig from environment variables (standardized)
         const kafkaConfig = KafkaConfig.fromEnv();
@@ -41,7 +44,7 @@ class KafkaClient {
             await this.producer.connect();
             this.isConnected = true;
             logger.info('Kafka producer connected (via shared library)');
-        } catch (error) {
+        } catch (error: any) {
             logger.error(`Failed to connect Kafka producer: ${error.message}`);
             // Retry handled by library? Library uses bare kafkajs.
             // We'll throw to let caller decide.
@@ -53,7 +56,7 @@ class KafkaClient {
      * Publish an authentication event
      * @param {Object} eventPayload - Event payload (partial AuthEvent)
      */
-    async publishAuthEvent(eventPayload) {
+    async publishAuthEvent(eventPayload: any) {
         if (!this.isConnected) {
             await this.initProducer();
         }
@@ -83,10 +86,10 @@ class KafkaClient {
             // We use generic publish with topic
             // Shared library producer.publish(topic, event, key?)
             // We use user_id as key for ordering
-            await this.producer.publish(Topics.AUTH_EVENTS, event, event.user_id);
+            await this.producer.publishWithKey(event, Topics.AUTH_EVENTS, event.user_id);
 
             logger.debug(`Published auth event: ${event.event_type} for user ${event.user_id}`);
-        } catch (error) {
+        } catch (error: any) {
             logger.error(`Failed to publish auth event: ${error.message}`);
             throw error;
         }
@@ -96,7 +99,7 @@ class KafkaClient {
      * Publish a session event
      * @param {Object} eventPayload - Session event payload
      */
-    async publishSessionEvent(eventPayload) {
+    async publishSessionEvent(eventPayload: any) {
         if (!this.isConnected) {
             await this.initProducer();
         }
@@ -114,8 +117,8 @@ class KafkaClient {
         };
 
         try {
-            await this.producer.publish(Topics.SESSION_EVENTS, event, event.session_id);
-        } catch (error) {
+            await this.producer.publishWithKey(event, Topics.SESSION_EVENTS, event.session_id);
+        } catch (error: any) {
             logger.error(`Failed to publish session event: ${error.message}`);
             throw error;
         }

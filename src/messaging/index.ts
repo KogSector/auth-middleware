@@ -6,7 +6,7 @@
  */
 
 // Kafka Client replaced with shared library wrapper (TypeScript)
-export { default as KafkaClient } from './kafkaClient';
+export { default as KafkaClient } from './kafkaClient.js';
 
 // Legacy JS modules (CommonJS interop)
 // Using require for JS modules to ensure correct typing/loading if allowJs is questionable
