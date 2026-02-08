@@ -18,6 +18,11 @@ logger.info('[AUTH-MIDDLEWARE] Initializing feature toggle client...');
 initFeatureToggle();
 logger.info('[AUTH-MIDDLEWARE] Feature toggle client initialized');
 
+// Initialize Kafka
+import { connectKafka } from './services/kafka.js';
+connectKafka();
+
+
 const app = express();
 
 // Security middleware

@@ -96,6 +96,22 @@ router.post('/auth0/exchange', async (req: Request, res: Response) => {
             sessionId,
         };
 
+        // Publish USER_AUTHENTICATED event
+        try {
+            const { kafkaClient } = await import('../services/kafka.js');
+            await kafkaClient.publishAuthEvent({
+                userId: user.id,
+                eventType: 'USER_AUTHENTICATED',
+                metadata: {
+                    ip: req.ip,
+                    userAgent: req.headers['user-agent'],
+                    correlationId: req.headers['x-correlation-id'] as string
+                }
+            });
+        } catch (error) {
+            console.error('[AUTH] Failed to publish USER_AUTHENTICATED event:', error);
+        }
+
         res.json(response);
 
     } catch (error) {
