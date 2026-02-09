@@ -5,10 +5,9 @@
  * Each user can have multiple workspaces, and workspaces can have multiple members.
  */
 
-import { PrismaClient, Workspace, WorkspaceMember } from '@prisma/client';
+import { Workspace, WorkspaceMember } from '@prisma/client';
 import { logger } from '../utils/logger.js';
-
-const prisma = new PrismaClient();
+import prisma from '../db/client.js';
 
 // Types
 export interface CreateWorkspaceInput {

@@ -4,10 +4,9 @@
  * Manages user preferences and settings with defaults.
  */
 
-import { PrismaClient, UserPreference } from '@prisma/client';
+import { UserPreference } from '@prisma/client';
 import { logger } from '../utils/logger.js';
-
-const prisma = new PrismaClient();
+import prisma from '../db/client.js';
 
 // Default preferences template
 export const DEFAULT_PREFERENCES = {

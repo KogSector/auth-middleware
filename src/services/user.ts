@@ -4,10 +4,8 @@
  * Handles user CRUD operations with Prisma
  */
 
-import { PrismaClient } from '@prisma/client';
-import type { User, UserProfile, CreateUserInput } from '../types/index.js';
-
-export const prisma = new PrismaClient();
+import { User, UserProfile, CreateUserInput } from '../types/index.js';
+import prisma from '../db/client.js';
 
 /**
  * Find or create user by Auth0 subject

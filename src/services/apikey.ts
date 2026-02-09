@@ -4,11 +4,10 @@
  * Manages API keys for programmatic access with scopes and rate limiting.
  */
 
-import { PrismaClient, ApiKey } from '@prisma/client';
+import { ApiKey } from '@prisma/client';
 import crypto from 'crypto';
 import { logger } from '../utils/logger.js';
-
-const prisma = new PrismaClient();
+import prisma from '../db/client.js';
 
 // Types
 export interface CreateApiKeyInput {

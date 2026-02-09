@@ -3,7 +3,7 @@
  */
 
 import { Router, type Request, type Response } from 'express';
-import { prisma } from '../services/user.js';
+import prisma from '../db/client.js';
 import { isAuthBypassEnabled } from '../services/feature-toggle.js';
 
 const router = Router();
