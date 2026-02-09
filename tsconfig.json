@@ -13,7 +13,13 @@
         "declarationMap": true,
         "sourceMap": true,
         "outDir": "./dist",
-        "rootDir": "./src"
+        "rootDir": "./src",
+        "baseUrl": ".",
+        "paths": {
+            "@confuse/events": [
+                "../shared-middleware/typescript/confuse-events/dist/index.d.ts"
+            ]
+        }
     },
     "include": [
         "src/**/*"

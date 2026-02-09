@@ -1,0 +1,2 @@
+src/messaging/kafkaClient.ts(15,5): error TS2724: '"@confuse/events"' has no exported member named 'createEventHeaders'. Did you mean 'EventHeaders'?
+src/messaging/kafkaClient.ts(16,5): error TS2724: '"@confuse/events"' has no exported member named 'createEventMetadata'. Did you mean 'EventMetadata'?

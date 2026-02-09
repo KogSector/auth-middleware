@@ -174,7 +174,7 @@ export async function setCustomSetting(
 
     await prisma.userPreference.update({
         where: { userId },
-        data: { customSettings: settings },
+        data: { customSettings: settings as any },
     });
 }
 

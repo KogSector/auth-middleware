@@ -48,7 +48,7 @@ class TokenCacheService {
                 password: config.redis.password,
             });
 
-            this.client.on('error', (err) => {
+            this.client.on('error', (err: Error) => {
                 logger.error('[TOKEN-CACHE] Redis client error:', err);
                 this.isConnected = false;
             });
