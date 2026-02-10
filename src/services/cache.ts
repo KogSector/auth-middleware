@@ -1,11 +1,10 @@
 /**
  * ConFuse Auth Middleware - Token Cache Service
  * 
- * Provides Redis-based JWT token caching for distributed authentication
- * with 15-minute TTL and cache-first validation pattern.
+ * Provides in-memory JWT token caching for distributed authentication
+ * with TTL-based expiration and cache-first validation pattern.
  */
 
-import { createClient, RedisClientType } from 'redis';
 import { config } from '../config.js';
 import { logger } from '../utils/logger.js';
 
@@ -31,51 +30,38 @@ interface CacheStats {
     errors: number;
 }
 
+// In-memory cache entry with expiration
+interface CacheEntry<T> {
+    data: T;
+    expiresAt: number;
+}
+
 class TokenCacheService {
-    private client: RedisClientType | null = null;
-    private isConnected = false;
+    private tokenCache: Map<string, CacheEntry<CachedToken>> = new Map();
+    private rateLimitCache: Map<string, RateLimitEntry> = new Map();
+    private isInitialized = false;
     private stats: CacheStats = { hits: 0, misses: 0, errors: 0 };
     private readonly TOKEN_PREFIX = 'auth:token:';
     private readonly RATE_LIMIT_PREFIX = 'auth:rate:';
+    private cleanupInterval: ReturnType<typeof setInterval> | null = null;
 
     /**
-     * Initialize Redis connection
+     * Initialize in-memory cache
      */
     async initialize(): Promise<void> {
-        try {
-            this.client = createClient({
-                url: config.redis.url,
-                password: config.redis.password,
-            });
+        this.isInitialized = true;
 
-            this.client.on('error', (err: Error) => {
-                logger.error('[TOKEN-CACHE] Redis client error:', err);
-                this.isConnected = false;
-            });
+        // Periodic cleanup of expired entries every 60 seconds
+        this.cleanupInterval = setInterval(() => this.cleanup(), 60_000);
 
-            this.client.on('connect', () => {
-                logger.info('[TOKEN-CACHE] Connected to Redis');
-                this.isConnected = true;
-            });
-
-            this.client.on('disconnect', () => {
-                logger.warn('[TOKEN-CACHE] Disconnected from Redis');
-                this.isConnected = false;
-            });
-
-            await this.client.connect();
-            logger.info('[TOKEN-CACHE] Token cache service initialized');
-        } catch (error) {
-            logger.error('[TOKEN-CACHE] Failed to initialize Redis:', error);
-            this.isConnected = false;
-        }
+        logger.info('[TOKEN-CACHE] In-memory token cache service initialized');
     }
 
     /**
      * Check if cache is available
      */
     isAvailable(): boolean {
-        return this.isConnected && this.client !== null;
+        return this.isInitialized;
     }
 
     /**
@@ -89,12 +75,17 @@ class TokenCacheService {
 
         try {
             const key = `${this.TOKEN_PREFIX}${tokenHash}`;
-            const data = await this.client!.get(key);
+            const entry = this.tokenCache.get(key);
 
-            if (data) {
+            if (entry && entry.expiresAt > Date.now()) {
                 this.stats.hits++;
                 logger.debug(`[TOKEN-CACHE] Cache hit for token hash: ${tokenHash.substring(0, 8)}...`);
-                return JSON.parse(data) as CachedToken;
+                return entry.data;
+            }
+
+            // Remove expired entry
+            if (entry) {
+                this.tokenCache.delete(key);
             }
 
             this.stats.misses++;
@@ -117,9 +108,12 @@ class TokenCacheService {
 
         try {
             const key = `${this.TOKEN_PREFIX}${tokenHash}`;
-            const ttl = config.redis.tokenCacheTtlSeconds;
+            const ttl = config.tokenCacheTtlSeconds;
 
-            await this.client!.setEx(key, ttl, JSON.stringify(data));
+            this.tokenCache.set(key, {
+                data,
+                expiresAt: Date.now() + (ttl * 1000),
+            });
             logger.debug(`[TOKEN-CACHE] Cached token for hash: ${tokenHash.substring(0, 8)}... TTL: ${ttl}s`);
         } catch (error) {
             this.stats.errors++;
@@ -137,7 +131,7 @@ class TokenCacheService {
 
         try {
             const key = `${this.TOKEN_PREFIX}${tokenHash}`;
-            await this.client!.del(key);
+            this.tokenCache.delete(key);
             logger.debug(`[TOKEN-CACHE] Invalidated token hash: ${tokenHash.substring(0, 8)}...`);
         } catch (error) {
             this.stats.errors++;
@@ -154,18 +148,12 @@ class TokenCacheService {
         }
 
         try {
-            const pattern = `${this.TOKEN_PREFIX}*`;
-            const keys = await this.client!.keys(pattern);
             let invalidatedCount = 0;
 
-            for (const key of keys) {
-                const data = await this.client!.get(key);
-                if (data) {
-                    const cached = JSON.parse(data) as CachedToken;
-                    if (cached.userId === userId) {
-                        await this.client!.del(key);
-                        invalidatedCount++;
-                    }
+            for (const [key, entry] of this.tokenCache.entries()) {
+                if (entry.data.userId === userId) {
+                    this.tokenCache.delete(key);
+                    invalidatedCount++;
                 }
             }
 
@@ -183,7 +171,6 @@ class TokenCacheService {
      */
     async checkRateLimit(key: string, maxRequests: number, windowSeconds: number): Promise<{ allowed: boolean; remaining: number; retryAfter: number }> {
         if (!this.isAvailable()) {
-            // Fail open if cache unavailable
             return { allowed: true, remaining: maxRequests, retryAfter: 0 };
         }
 
@@ -192,11 +179,22 @@ class TokenCacheService {
             const windowStart = Math.floor(now / windowSeconds) * windowSeconds;
             const rateLimitKey = `${this.RATE_LIMIT_PREFIX}${key}:${windowStart}`;
 
-            const count = await this.client!.incr(rateLimitKey);
+            const entry = this.rateLimitCache.get(rateLimitKey);
+            let count: number;
 
-            // Set expiration on first request
-            if (count === 1) {
-                await this.client!.expire(rateLimitKey, windowSeconds * 2);
+            if (entry && entry.windowStart === windowStart) {
+                entry.count++;
+                count = entry.count;
+            } else {
+                // Clean up old window entries for this key prefix
+                const keyPrefix = `${this.RATE_LIMIT_PREFIX}${key}:`;
+                for (const k of this.rateLimitCache.keys()) {
+                    if (k.startsWith(keyPrefix) && k !== rateLimitKey) {
+                        this.rateLimitCache.delete(k);
+                    }
+                }
+                count = 1;
+                this.rateLimitCache.set(rateLimitKey, { count, windowStart });
             }
 
             const allowed = count <= maxRequests;
@@ -211,7 +209,6 @@ class TokenCacheService {
         } catch (error) {
             this.stats.errors++;
             logger.error('[TOKEN-CACHE] Error checking rate limit:', error);
-            // Fail open
             return { allowed: true, remaining: maxRequests, retryAfter: 0 };
         }
     }
@@ -230,16 +227,25 @@ class TokenCacheService {
      */
     async healthCheck(): Promise<{ status: string; latencyMs: number }> {
         if (!this.isAvailable()) {
-            return { status: 'disconnected', latencyMs: -1 };
+            return { status: 'not_initialized', latencyMs: -1 };
         }
+        return { status: 'healthy', latencyMs: 0 };
+    }
 
-        try {
-            const start = Date.now();
-            await this.client!.ping();
-            const latencyMs = Date.now() - start;
-            return { status: 'healthy', latencyMs };
-        } catch (error) {
-            return { status: 'error', latencyMs: -1 };
+    /**
+     * Clean up expired entries
+     */
+    private cleanup(): void {
+        const now = Date.now();
+        let cleaned = 0;
+        for (const [key, entry] of this.tokenCache.entries()) {
+            if (entry.expiresAt <= now) {
+                this.tokenCache.delete(key);
+                cleaned++;
+            }
+        }
+        if (cleaned > 0) {
+            logger.debug(`[TOKEN-CACHE] Cleaned up ${cleaned} expired entries`);
         }
     }
 
@@ -247,10 +253,12 @@ class TokenCacheService {
      * Graceful shutdown
      */
     async shutdown(): Promise<void> {
-        if (this.client) {
-            await this.client.quit();
-            logger.info('[TOKEN-CACHE] Redis connection closed');
+        if (this.cleanupInterval) {
+            clearInterval(this.cleanupInterval);
         }
+        this.tokenCache.clear();
+        this.rateLimitCache.clear();
+        logger.info('[TOKEN-CACHE] In-memory cache cleared');
     }
 }
 
