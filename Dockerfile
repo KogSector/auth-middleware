@@ -1,6 +1,6 @@
-# Build stage - compile TypeScript (Node.js 24 LTS)
+# Build stage - compile TypeScript (Node.js 22 LTS)
 # Using slim (Debian) instead of Alpine for Prisma OpenSSL compatibility
-FROM node:24-slim AS builder
+FROM node:22-slim AS builder
 
 WORKDIR /app
 
@@ -17,14 +17,16 @@ COPY auth-middleware/src ./src
 # Copy shared library
 COPY shared-middleware ./shared-middleware
 
-
 # Install and build shared library
-WORKDIR /app/shared/typescript/confuse-events
-RUN npm install && npm run build
+WORKDIR /app/shared-middleware/typescript/confuse-events
+RUN rm -rf package-lock.json && npm install && npm run build
 WORKDIR /app
 
 # Install ALL dependencies (including dev for building)
-RUN npm install
+# Patch @confuse/events path for Docker layout (./shared-middleware instead of ../../shared-middleware)
+RUN rm -rf package-lock.json && \
+    sed -i 's|file:../../shared-middleware|file:./shared-middleware|g' package.json && \
+    npm install
 
 # Copy source files
 COPY auth-middleware/prisma ./prisma/
@@ -36,23 +38,28 @@ RUN npx prisma generate
 # Build TypeScript
 RUN npm run build
 
+# Prune dev dependencies after building
+RUN npm prune --omit=dev 2>/dev/null; exit 0
+
 # Production stage
-FROM node:24-slim
+FROM node:22-slim
 
 WORKDIR /app
 
 # Install OpenSSL and wget for health checks
 RUN apt-get update && apt-get install -y openssl wget && rm -rf /var/lib/apt/lists/*
 
-# Copy package files
-COPY auth-middleware/package*.json ./
+# Copy node_modules from builder (already pruned to production deps)
+COPY --from=builder /app/node_modules ./node_modules
 
-# Install production dependencies only
-RUN npm install --only=production
+# Copy shared-middleware built artifacts (needed for @confuse/events runtime)
+COPY --from=builder /app/shared-middleware ./shared-middleware
 
-# Copy Prisma schema and generate client
+# Copy Prisma schema and generated client
 COPY auth-middleware/prisma ./prisma/
-RUN npx prisma generate
+
+# Copy package.json for runtime
+COPY --from=builder /app/package.json ./
 
 # Copy built JavaScript from builder
 COPY --from=builder /app/dist ./dist
@@ -61,7 +68,6 @@ COPY --from=builder /app/dist ./dist
 RUN mkdir -p keys
 
 # Set environment
-# Set environment
 ENV NODE_ENV=production
 ENV PORT=3001
 
@@ -69,6 +75,6 @@ EXPOSE 3001
 
 # Health check optimized for Azure Container Apps
 HEALTHCHECK --interval=30s --timeout=10s --start-period=60s --retries=3 \
-    CMD curl -f http://localhost:3001/health || exit 1
+    CMD wget --no-verbose --tries=1 --spider http://localhost:3001/health || exit 1
 
 CMD ["node", "dist/index.js"]
