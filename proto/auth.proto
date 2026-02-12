@@ -1,0 +1,35 @@
+syntax = "proto3";
+
+package confuse.auth.v1;
+
+// Auth service - authentication and authorization (if needed for internal calls)
+service Auth {
+  // Token validation
+  rpc ValidateToken(ValidateTokenRequest) returns (ValidateTokenResponse);
+  
+  // User information
+  rpc GetUser(GetUserRequest) returns (User);
+}
+
+// Messages
+message ValidateTokenRequest {
+  string token = 1;
+}
+
+message ValidateTokenResponse {
+  bool valid = 1;
+  optional string user_id = 2;
+  repeated string roles = 3;
+  optional string error = 4;
+}
+
+message GetUserRequest {
+  string user_id = 1;
+}
+
+message User {
+  string user_id = 1;
+  string email = 2;
+  repeated string roles = 3;
+  map<string, string> metadata = 4;
+}
