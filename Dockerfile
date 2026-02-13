@@ -18,14 +18,14 @@ COPY auth-middleware/src ./src
 COPY shared-middleware ./shared-middleware
 
 # Install and build shared library
-WORKDIR /app/shared-middleware/typescript/confuse-events
+WORKDIR /app/shared-middleware/confuse-events
 RUN rm -rf package-lock.json && npm install && npm run build
 WORKDIR /app
 
 # Install ALL dependencies (including dev for building)
 # Patch @confuse/events path for Docker layout (./shared-middleware instead of ../../shared-middleware)
 RUN rm -rf package-lock.json && \
-    sed -i 's|file:../../shared-middleware|file:./shared-middleware|g' package.json && \
+    sed -i 's|file:../shared-middleware|file:./shared-middleware|g' package.json && \
     npm install
 
 # Copy source files
