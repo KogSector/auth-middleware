@@ -105,6 +105,7 @@ export interface Session {
 
 export interface DemoUser {
     id: string;
+    sub: string; // Alias for id to match JwtPayload
     email: string;
     name: string;
     roles: string[];
