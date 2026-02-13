@@ -12,6 +12,9 @@ import authRoutes from './routes/auth.js';
 import healthRoutes from './routes/health.js';
 import { initFeatureToggle } from './services/feature-toggle.js';
 import { logger } from './utils/logger.js';
+import { rateLimitMiddleware, initRedis } from './middleware/rate-limit.js';
+import { securityHeadersMiddleware } from './middleware/security-headers.js';
+import { cleanupExpiredSessions } from './services/session.js';
 
 // Initialize feature toggle client
 logger.info('[AUTH-MIDDLEWARE] Initializing feature toggle client...');
@@ -22,12 +25,19 @@ logger.info('[AUTH-MIDDLEWARE] Feature toggle client initialized');
 import { connectKafka } from './services/kafka.js';
 connectKafka();
 
+// Initialize Redis for rate limiting
+initRedis();
+
+// Periodic session cleanup (every 5 minutes)
+setInterval(() => cleanupExpiredSessions(), 5 * 60_000);
+
 
 const app = express();
 
 // Security middleware
 logger.info('[AUTH-MIDDLEWARE] Setting up security middleware...');
 app.use(helmet());
+app.use(securityHeadersMiddleware());
 
 // CORS configuration
 app.use(cors({
@@ -48,6 +58,9 @@ app.use(cors({
 
 // Body parsing
 app.use(express.json());
+
+// Rate limiting (after body parsing, before routes)
+app.use(rateLimitMiddleware());
 
 // Request logging
 app.use((req: Request, res: Response, next: NextFunction) => {

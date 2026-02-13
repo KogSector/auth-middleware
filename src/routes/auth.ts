@@ -14,6 +14,10 @@ import { isAuthBypassEnabled, getBypassUser } from '../services/feature-toggle.j
 import { requireAuth, requireInternalApiKey } from '../middleware/auth.js';
 import type { AuthenticatedRequest, AuthExchangeResponse, TokenRefreshResponse, TokenVerifyResponse } from '../types/index.js';
 import { config } from '../config.js';
+import {
+    createSession, parseDeviceInfo, listUserSessions,
+    revokeSession, revokeAllOtherSessions, touchSession,
+} from '../services/session.js';
 
 const router = Router();
 
@@ -75,16 +79,15 @@ router.post('/auth0/exchange', async (req: Request, res: Response) => {
         const sessionId = uuidv4();
         const tokens = generateTokens(user.id, user.email, user.roles, sessionId);
 
-        // Store session
-        await prisma.session.create({
-            data: {
-                id: sessionId,
-                userId: user.id,
-                refreshToken: tokens.refreshToken,
-                expiresAt: tokens.refreshExpiresAt,
-                userAgent: req.headers['user-agent'] || null,
-                ipAddress: req.ip || null,
-            },
+        // Store session with device info and concurrent session enforcement
+        const deviceInfo = parseDeviceInfo(req.headers['user-agent']);
+        await createSession({
+            userId: user.id,
+            refreshToken: tokens.refreshToken,
+            expiresAt: tokens.refreshExpiresAt,
+            userAgent: req.headers['user-agent'] || null,
+            ipAddress: req.ip || null,
+            deviceInfo,
         });
 
         console.log(`Auth0 exchange successful for: ${auth0Sub}`);
@@ -482,6 +485,58 @@ router.post('/connections/:provider', async (req: Request, res: Response) => {
         res.status(500).json({
             error: 'Internal server error',
         });
+    }
+});
+
+/**
+ * GET /auth/sessions
+ *
+ * List all active sessions for the current user
+ */
+router.get('/sessions', requireAuth as any, async (req: AuthenticatedRequest, res: Response) => {
+    try {
+        const jwtUser = req.user as { sub: string; sessionId?: string };
+        const sessions = await listUserSessions(jwtUser.sub, jwtUser.sessionId);
+        res.json({ success: true, data: sessions });
+    } catch (error) {
+        console.error('List sessions error:', error);
+        res.status(500).json({ error: 'Internal server error' });
+    }
+});
+
+/**
+ * DELETE /auth/sessions/:sessionId
+ *
+ * Revoke a specific session
+ */
+router.delete('/sessions/:sessionId', requireAuth as any, async (req: AuthenticatedRequest, res: Response) => {
+    try {
+        const jwtUser = req.user as { sub: string };
+        const revoked = await revokeSession(req.params.sessionId, jwtUser.sub);
+        if (!revoked) {
+            res.status(404).json({ error: 'Session not found or already revoked' });
+            return;
+        }
+        res.json({ success: true, message: 'Session revoked' });
+    } catch (error) {
+        console.error('Revoke session error:', error);
+        res.status(500).json({ error: 'Internal server error' });
+    }
+});
+
+/**
+ * POST /auth/sessions/revoke-others
+ *
+ * Revoke all other sessions except the current one
+ */
+router.post('/sessions/revoke-others', requireAuth as any, async (req: AuthenticatedRequest, res: Response) => {
+    try {
+        const jwtUser = req.user as { sub: string; sessionId: string };
+        const count = await revokeAllOtherSessions(jwtUser.sub, jwtUser.sessionId);
+        res.json({ success: true, message: `Revoked ${count} other sessions` });
+    } catch (error) {
+        console.error('Revoke other sessions error:', error);
+        res.status(500).json({ error: 'Internal server error' });
     }
 });
 
