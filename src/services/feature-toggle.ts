@@ -11,6 +11,7 @@ import { config } from '../config.js';
 // Re-export DemoUser type
 export interface DemoUser {
     id: string;
+    sub: string; // Alias for id
     email: string;
     name: string;
     roles: string[];

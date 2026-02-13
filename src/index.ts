@@ -12,7 +12,7 @@ import authRoutes from './routes/auth.js';
 import healthRoutes from './routes/health.js';
 import { initFeatureToggle } from './services/feature-toggle.js';
 import { logger } from './utils/logger.js';
-import { rateLimitMiddleware, initRedis } from './middleware/rate-limit.js';
+import { rateLimitMiddleware, initRedis } from './middleware/rate-limiter.js';
 import { securityHeadersMiddleware } from './middleware/security-headers.js';
 import { cleanupExpiredSessions } from './services/session.js';
 

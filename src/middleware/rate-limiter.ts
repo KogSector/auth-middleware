@@ -80,7 +80,7 @@ async function checkRateLimit(
             multi.zCard(key);
             multi.pExpire(key, windowMs);
             const results = await multi.exec();
-            const count = (results?.[2] as number) || 0;
+            const count = (results?.[2] as unknown as number) || 0;
             const allowed = count <= maxRequests;
             return {
                 allowed,
