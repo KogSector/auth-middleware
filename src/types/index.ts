@@ -47,6 +47,7 @@ export interface Auth0Claims {
     name?: string;
     picture?: string;
     permissions?: string[];
+    roles?: string[]; // Augmented by middleware
     [key: string]: unknown;
 }
 
@@ -126,7 +127,7 @@ export interface FeatureToggleResponse {
 // ============================================================================
 
 export interface AuthenticatedRequest extends Request {
-    user?: JwtPayload | DemoUser;
+    user?: Auth0Claims | DemoUser | JwtPayload; // Keeping JwtPayload for backward compat during migration if needed, but Auth0Claims is the target
 }
 
 // ============================================================================
@@ -140,17 +141,9 @@ export interface ApiError {
 
 export interface AuthExchangeResponse {
     user: UserProfile;
-    token: string;
-    refreshToken: string;
-    expiresAt: string;
-    sessionId: string;
 }
 
-export interface TokenRefreshResponse {
-    token: string;
-    refreshToken: string;
-    expiresAt: string;
-}
+// TokenRefreshResponse removed as we use Auth0 refresh tokens on client side
 
 export interface TokenVerifyResponse {
     valid: boolean;

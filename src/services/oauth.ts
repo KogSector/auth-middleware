@@ -1,4 +1,93 @@
 
+import { Redis } from 'ioredis';
+import { randomBytes, createHash } from 'crypto';
+import { config } from '../config.js';
+
+export interface OAuthState {
+    provider: string;
+    userId?: string;
+    redirectUri: string;
+    codeVerifier?: string;
+    createdAt: number;
+    expiresAt: number;
+}
+
+export class OAuthStateService {
+    private redis: any;
+    private readonly PREFIX = 'oauth:state:';
+    private readonly TTL = 600; // 10 minutes
+
+    constructor() {
+        const redisUrl = process.env.REDIS_URL || 'redis://localhost:6379';
+        this.redis = new Redis(redisUrl);
+
+        this.redis.on('error', (err: Error) => {
+            console.error('Redis connection error:', err);
+        });
+    }
+
+    /**
+     * Generate secure random state
+     */
+    generateState(): string {
+        return randomBytes(32).toString('hex');
+    }
+
+    /**
+     * Generate PKCE Code Verifier and Challenge
+     */
+    generatePKCE(): { codeVerifier: string; codeChallenge: string } {
+        const codeVerifier = randomBytes(32).toString('base64url');
+        const codeChallenge = createHash('sha256')
+            .update(codeVerifier)
+            .digest('base64url');
+        return { codeVerifier, codeChallenge };
+    }
+
+    /**
+     * Store OAuth state in Redis
+     */
+    async storeState(state: string, data: Omit<OAuthState, 'createdAt' | 'expiresAt'>): Promise<void> {
+        const key = `${this.PREFIX}${state}`;
+        const now = Date.now();
+        const stateData: OAuthState = {
+            ...data,
+            createdAt: now,
+            expiresAt: now + (this.TTL * 1000),
+        };
+
+        // Redis SET command with EX (expiration) option
+        await this.redis.set(key, JSON.stringify(stateData), 'EX', this.TTL);
+    }
+
+    /**
+     * Validate and retrieve state
+     */
+    async validateState(state: string): Promise<OAuthState | null> {
+        const key = `${this.PREFIX}${state}`;
+        const data = await this.redis.get(key);
+
+        if (!data) return null;
+
+        try {
+            return JSON.parse(data);
+        } catch {
+            return null;
+        }
+    }
+
+    /**
+     * Consume state (one-time use)
+     */
+    async consumeState(state: string): Promise<boolean> {
+        const key = `${this.PREFIX}${state}`;
+        const result = await this.redis.del(key);
+        return result === 1;
+    }
+}
+
+export const oAuthStateService = new OAuthStateService();
+
 
 export interface OAuthProfile {
     id: string;
@@ -110,3 +199,4 @@ async function validateGoogleToken(token: string): Promise<OAuthProfile> {
         avatar_url: data.picture,
     };
 }
+// ... existing validation functions ...

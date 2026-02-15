@@ -6,10 +6,10 @@
  */
 
 import type { Response, NextFunction } from 'express';
-import { verifyConHubToken } from '../services/jwt.js';
+import { verifyAuth0Token, extractRoles } from '../services/auth0.js';
 import { isAuthBypassEnabled, getBypassUser } from '../services/feature-toggle.js';
 import { config } from '../config.js';
-import type { AuthenticatedRequest, JwtPayload, DemoUser } from '../types/index.js';
+import type { AuthenticatedRequest, Auth0Claims } from '../types/index.js';
 
 /**
  * Extract bearer token from Authorization header
@@ -23,7 +23,7 @@ export function extractBearerToken(req: AuthenticatedRequest): string | null {
 }
 
 /**
- * Require ConHub JWT authentication (with bypass support)
+ * Require Auth0 Access Token authentication
  */
 export async function requireAuth(
     req: AuthenticatedRequest,
@@ -58,7 +58,9 @@ export async function requireAuth(
     }
 
     try {
-        const claims = verifyConHubToken(token);
+        const claims = await verifyAuth0Token(token);
+        // Augment claims with roles
+        (claims as any).roles = extractRoles(claims);
         req.user = claims;
         next();
     } catch (error) {
@@ -71,7 +73,7 @@ export async function requireAuth(
 }
 
 /**
- * Optional authentication - doesn't fail if no token (with bypass support)
+ * Optional authentication - doesn't fail if no token
  */
 export async function optionalAuth(
     req: AuthenticatedRequest,
@@ -96,7 +98,7 @@ export async function optionalAuth(
 
     if (token) {
         try {
-            const claims = verifyConHubToken(token);
+            const claims = await verifyAuth0Token(token);
             req.user = claims;
         } catch {
             // Ignore errors for optional auth
@@ -118,7 +120,7 @@ export function requireRoles(...requiredRoles: string[]) {
             return;
         }
 
-        const userRoles = req.user.roles;
+        const userRoles = req.user.roles || [];
         const hasRole = requiredRoles.length === 0 ||
             requiredRoles.some(role => userRoles.includes(role));
 

@@ -17,23 +17,15 @@ interface Auth0Config {
     clientSecret?: string;
     managementDomain?: string;
 }
-}
 
-interface JwtConfig {
-    privateKey: string | null;
-    publicKey: string | null;
-    issuer: string;
-    audience: string;
-    expiresIn: string;
-    refreshExpiresIn: string;
-}
+
 
 
 interface Config {
     port: number;
     nodeEnv: string;
     auth0: Auth0Config;
-    jwt: JwtConfig;
+
     tokenCacheTtlSeconds: number;
     databaseUrl: string;
     internalApiKey: string | undefined;
@@ -81,14 +73,7 @@ export const config: Config = {
     },
 
     // ConHub JWT
-    jwt: {
-        privateKey: loadKeyFile('JWT_PRIVATE_KEY_PATH'),
-        publicKey: loadKeyFile('JWT_PUBLIC_KEY_PATH'),
-        issuer: process.env.JWT_ISSUER || 'conhub-auth',
-        audience: process.env.JWT_AUDIENCE || 'conhub-services',
-        expiresIn: process.env.JWT_EXPIRES_IN || '1h',
-        refreshExpiresIn: process.env.JWT_REFRESH_EXPIRES_IN || '7d',
-    },
+
 
     // Token cache TTL
     tokenCacheTtlSeconds: parseInt(process.env.TOKEN_CACHE_TTL_SECONDS || '900', 10), // 15 minutes

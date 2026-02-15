@@ -14,23 +14,13 @@ import { initFeatureToggle } from './services/feature-toggle.js';
 import { logger } from './utils/logger.js';
 import { rateLimitMiddleware, initRedis } from './middleware/rate-limiter.js';
 import { securityHeadersMiddleware } from './middleware/security-headers.js';
-import { cleanupExpiredSessions } from './services/session.js';
 
 // Initialize feature toggle client
 logger.info('[AUTH-MIDDLEWARE] Initializing feature toggle client...');
 initFeatureToggle();
 logger.info('[AUTH-MIDDLEWARE] Feature toggle client initialized');
-
-// Initialize Kafka
-import { connectKafka } from './services/kafka.js';
-connectKafka();
-
 // Initialize Redis for rate limiting
 initRedis();
-
-// Periodic session cleanup (every 5 minutes)
-setInterval(() => cleanupExpiredSessions(), 5 * 60_000);
-
 
 const app = express();
 

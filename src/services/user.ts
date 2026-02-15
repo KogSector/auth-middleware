@@ -62,22 +62,7 @@ export async function findOrCreateByAuth0(input: CreateUserInput): Promise<User>
         },
     });
 
-    // Publish USER_CREATED event
-    try {
-        const { kafkaClient } = await import('./kafka.js');
-        await kafkaClient.publishAuthEvent({
-            userId: user.id,
-            eventType: 'USER_CREATED',
-            metadata: {
-                email: user.email,
-                name: user.name,
-                roles: user.roles.join(','),
-                provider: 'auth0'
-            }
-        });
-    } catch (error) {
-        console.error('[USER] Failed to publish USER_CREATED event:', error);
-    }
+
 
     // Create default workspace for new user
     try {

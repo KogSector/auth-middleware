@@ -2,15 +2,9 @@
  * ConFuse Messaging Module
  * ========================
  *
- * Provides Kafka integration for authentication events.
+ * Provides messaging utilities.
  */
 
-// Kafka Client replaced with shared library wrapper (TypeScript)
-export { default as KafkaClient } from './kafkaClient.js';
-
-// Legacy JS modules (CommonJS interop)
-// Using require for JS modules to ensure correct typing/loading if allowJs is questionable
-// But standard import should work with esModuleInterop
 import CircuitBreaker from './circuitBreaker.js';
 import BloomFilter from './bloomFilter.js';
 

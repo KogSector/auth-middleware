@@ -15,11 +15,7 @@
         "outDir": "./dist",
         "rootDir": "./src",
         "baseUrl": ".",
-        "paths": {
-            "@confuse/events": [
-                "../shared-middleware/typescript/confuse-events/dist/index.d.ts"
-            ]
-        }
+        "paths": {}
     },
     "include": [
         "src/**/*"
