@@ -214,3 +214,82 @@ export function extractRoles(claims: Auth0Claims): string[] {
 export function getTokenCacheStats(): CacheStats {
     return tokenCache.getStats();
 }
+// ... existing code ...
+
+/**
+ * Auth0 Management API Client
+ * Used to fetch user details and IdP tokens
+ */
+export class Auth0ManagementClient {
+    private static instance: Auth0ManagementClient;
+    private token: string | null = null;
+    private expiresAt: number = 0;
+
+    private constructor() { }
+
+    static getInstance(): Auth0ManagementClient {
+        if (!Auth0ManagementClient.instance) {
+            Auth0ManagementClient.instance = new Auth0ManagementClient();
+        }
+        return Auth0ManagementClient.instance;
+    }
+
+    /**
+     * Get M2M Access Token for Management API
+     */
+    private async getAccessToken(): Promise<string> {
+        if (this.token && Date.now() < this.expiresAt) {
+            return this.token;
+        }
+
+        if (!config.auth0.clientId || !config.auth0.clientSecret) {
+            throw new Error('Auth0 Client ID/Secret not configured for Management API');
+        }
+
+        const response = await fetch(`https://${config.auth0.domain}/oauth/token`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                client_id: config.auth0.clientId,
+                client_secret: config.auth0.clientSecret,
+                audience: `https://${config.auth0.managementDomain}/api/v2/`,
+                grant_type: 'client_credentials',
+            }),
+        });
+
+        if (!response.ok) {
+            const text = await response.text();
+            throw new Error(`Failed to get Auth0 Management token: ${response.status} ${text}`);
+        }
+
+        const data: any = await response.json();
+        this.token = data.access_token;
+        // Cache for slightly less than expires_in to be safe
+        this.expiresAt = Date.now() + (data.expires_in * 1000) - 60000;
+
+        return this.token!;
+    }
+
+    /**
+     * Get User Identities (including IdP tokens)
+     * Requires the M2M app to have `read:user_idp_tokens` scope
+     */
+    async getUserIdentities(userId: string): Promise<any[]> {
+        const token = await this.getAccessToken();
+        // safe userId encoding
+        const encodedUserId = encodeURIComponent(userId);
+
+        const response = await fetch(`https://${config.auth0.managementDomain}/api/v2/users/${encodedUserId}`, {
+            headers: {
+                Authorization: `Bearer ${token}`,
+            },
+        });
+
+        if (!response.ok) {
+            throw new Error(`Failed to fetch user details: ${response.status}`);
+        }
+
+        const user: any = await response.json();
+        return user.identities || [];
+    }
+}

@@ -13,6 +13,10 @@ interface Auth0Config {
     issuer: string;
     audience: string;
     jwksUri: string;
+    clientId?: string;
+    clientSecret?: string;
+    managementDomain?: string;
+}
 }
 
 interface JwtConfig {
@@ -71,6 +75,9 @@ export const config: Config = {
         audience: process.env.AUTH0_AUDIENCE || 'confuse-api',
         jwksUri: process.env.AUTH0_JWKS_URI ||
             `https://${process.env.AUTH0_DOMAIN || 'dev-placeholder.auth0.com'}/.well-known/jwks.json`,
+        clientId: process.env.AUTH0_CLIENT_ID,
+        clientSecret: process.env.AUTH0_CLIENT_SECRET,
+        managementDomain: process.env.AUTH0_MANAGEMENT_DOMAIN || process.env.AUTH0_DOMAIN,
     },
 
     // ConHub JWT
