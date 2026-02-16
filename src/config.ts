@@ -32,6 +32,7 @@ interface Config {
     corsOrigins: string[];
     featureToggleServiceUrl: string;
     frontendUrl: string;
+    grpcPort: number;
 }
 
 function requireEnv(name: string): string {
@@ -94,4 +95,7 @@ export const config: Config = {
 
     // Frontend URL for OAuth callbacks
     frontendUrl: process.env.FRONTEND_URL || 'http://localhost:3000',
+
+    // gRPC Server Port
+    grpcPort: parseInt(process.env.GRPC_PORT || '50058', 10),
 };

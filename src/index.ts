@@ -14,6 +14,7 @@ import { initFeatureToggle } from './services/feature-toggle.js';
 import { logger } from './utils/logger.js';
 import { rateLimitMiddleware, initRedis } from './middleware/rate-limiter.js';
 import { securityHeadersMiddleware } from './middleware/security-headers.js';
+import { startGrpcServer } from './grpc.js';
 
 // Initialize feature toggle client
 logger.info('[AUTH-MIDDLEWARE] Initializing feature toggle client...');
@@ -122,6 +123,9 @@ app.listen(PORT, () => {
     logger.info(`║  🎛️  Feature toggles: ${config.featureToggleServiceUrl.substring(0, 31).padEnd(32)}║`);
     logger.info('╚══════════════════════════════════════════════════════════╝');
     logger.info('');
+
+    // Start gRPC Server
+    startGrpcServer();
 });
 
 export default app;
