@@ -161,7 +161,7 @@ router.post('/verify', requireInternalApiKey as any, async (req: Request, res: R
 
         const response: TokenVerifyResponse = {
             valid: true,
-            claims: claims as any, // Cast to any/JwtPayload to satisfy type, or update type
+            claims: claims as any, // Cast to any to satisfy type
         };
 
         res.json(response);

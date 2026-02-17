@@ -1,7 +1,7 @@
 /**
  * ConFuse Auth Middleware - Token Cache Service
  * 
- * Provides in-memory JWT token caching for distributed authentication
+ * Provides in-memory token caching for distributed authentication
  * with TTL-based expiration and cache-first validation pattern.
  */
 

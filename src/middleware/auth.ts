@@ -1,7 +1,7 @@
 /**
  * ConFuse Auth Middleware - Express Auth Middleware
  * 
- * Middleware functions for protecting routes with ConHub JWT
+ * Middleware functions for protecting routes with Auth0
  * Includes feature toggle bypass support for development
  */
 

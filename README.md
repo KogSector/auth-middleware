@@ -1,6 +1,6 @@
 # ConFuse Auth Middleware
 
-Authentication and authorization service for the ConFuse platform. Handles JWT tokens, OAuth flows, API keys, and user sessions.
+Authentication and authorization service for the ConFuse platform. Handles Auth0 tokens, OAuth flows, API keys, and user sessions.
 
 ## Role in ConFuse
 
@@ -15,7 +15,7 @@ Authentication and authorization service for the ConFuse platform. Handles JWT t
 │                            Port: 3010                               │
 │                                                                      │
 │   ┌─────────────┐   ┌─────────────┐   ┌─────────────┐              │
-│   │    JWT      │   │   OAuth2    │   │  API Keys   │              │
+│   │ Auth0      │   │   OAuth2    │   │  API Keys   │              │
 │   │ Validation  │   │   Flows     │   │ Management  │              │
 │   └─────────────┘   └─────────────┘   └─────────────┘              │
 └───────────────────────────────┬─────────────────────────────────────┘
@@ -29,7 +29,7 @@ Authentication and authorization service for the ConFuse platform. Handles JWT t
 
 ## Features
 
-- **JWT Tokens**: Issue and validate JSON Web Tokens
+- **Auth0 Tokens**: Validate Auth0 tokens
 - **OAuth2 Flows**: GitHub, Google, GitLab OAuth integrations
 - **API Keys**: Generate and manage API keys for programmatic access
 - **Session Management**: Redis-backed session storage
@@ -45,8 +45,8 @@ Authentication and authorization service for the ConFuse platform. Handles JWT t
 | `/auth/login` | POST | Email/password login |
 | `/auth/register` | POST | User registration |
 | `/auth/logout` | POST | Invalidate session |
-| `/auth/refresh` | POST | Refresh JWT token |
-| `/auth/verify` | GET | Verify JWT token |
+| `/auth/refresh` | POST | Refresh Auth0 token |
+| `/auth/verify` | GET | Verify Auth0 token |
 
 ### OAuth
 
@@ -89,8 +89,7 @@ npm test
 | `PORT` | Server port | `3010` |
 | `DATABASE_URL` | PostgreSQL connection | Required |
 | `REDIS_URL` | Redis connection | Required |
-| `JWT_SECRET` | JWT signing secret | Required |
-| `JWT_EXPIRES_IN` | Token expiry | `24h` |
+| `TOKEN_CACHE_TTL_SECONDS` | Token cache TTL | `900` |
 | `FEATURE_TOGGLE_SERVICE_URL` | Feature toggle service | `http://localhost:3099` |
 | `GITHUB_CLIENT_ID` | GitHub OAuth client ID | - |
 | `GITHUB_CLIENT_SECRET` | GitHub OAuth secret | - |

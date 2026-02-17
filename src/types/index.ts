@@ -59,32 +59,6 @@ export interface Auth0UserInfo {
 }
 
 // ============================================================================
-// JWT Types
-// ============================================================================
-
-export interface JwtPayload {
-    sub: string;
-    email: string;
-    roles: string[];
-    sessionId: string;
-    jti: string;
-    workspaceId?: string;  // Current active workspace
-}
-
-export interface RefreshPayload {
-    sub: string;
-    sessionId: string;
-    type: 'refresh';
-}
-
-export interface TokenPair {
-    accessToken: string;
-    refreshToken: string;
-    expiresAt: Date;
-    refreshExpiresAt: Date;
-}
-
-// ============================================================================
 // Session Types
 // ============================================================================
 
@@ -106,7 +80,7 @@ export interface Session {
 
 export interface DemoUser {
     id: string;
-    sub: string; // Alias for id to match JwtPayload
+    sub: string; // Alias for id to match Auth0Claims
     email: string;
     name: string;
     roles: string[];
@@ -127,7 +101,7 @@ export interface FeatureToggleResponse {
 // ============================================================================
 
 export interface AuthenticatedRequest extends Request {
-    user?: Auth0Claims | DemoUser | JwtPayload; // Keeping JwtPayload for backward compat during migration if needed, but Auth0Claims is the target
+    user?: Auth0Claims | DemoUser;
 }
 
 // ============================================================================
@@ -147,7 +121,7 @@ export interface AuthExchangeResponse {
 
 export interface TokenVerifyResponse {
     valid: boolean;
-    claims?: JwtPayload;
+    claims?: Auth0Claims | DemoUser;
     error?: string;
 }
 
