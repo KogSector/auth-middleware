@@ -11,11 +11,12 @@ RUN apt-get update && apt-get install -y openssl && rm -rf /var/lib/apt/lists/*
 COPY auth-middleware/package*.json ./
 COPY auth-middleware/tsconfig.json ./
 
-# Copy source code
-COPY auth-middleware/src ./src
+# Copy source files
+COPY auth-middleware/src ./src/
+COPY auth-middleware/proto ./proto/
 
 # Copy shared library
-COPY shared-middleware ./shared-middleware
+COPY shared-middleware/typescript/confuse-events ./shared-middleware/confuse-events
 
 # Install and build shared library
 WORKDIR /app/shared-middleware/confuse-events
@@ -64,17 +65,20 @@ COPY --from=builder /app/package.json ./
 # Copy built JavaScript from builder
 COPY --from=builder /app/dist ./dist
 
+# Copy proto files
+COPY --from=builder /app/proto ./proto
+
 # Create keys directory
 RUN mkdir -p keys
 
 # Set environment
 ENV NODE_ENV=production
-ENV PORT=3001
+ENV PORT=3010
 
-EXPOSE 3001
+EXPOSE 3010
 
 # Health check optimized for Azure Container Apps
 HEALTHCHECK --interval=30s --timeout=10s --start-period=60s --retries=3 \
-    CMD wget --no-verbose --tries=1 --spider http://localhost:3001/health || exit 1
+    CMD wget --no-verbose --tries=1 --spider http://localhost:3010/health || exit 1
 
 CMD ["node", "dist/index.js"]
