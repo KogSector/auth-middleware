@@ -28,7 +28,6 @@ interface Config {
 
     tokenCacheTtlSeconds: number;
     databaseUrl: string;
-    internalApiKey: string | undefined;
     corsOrigins: string[];
     featureToggleServiceUrl: string;
     frontendUrl: string;
@@ -81,9 +80,6 @@ export const config: Config = {
 
     // Database
     databaseUrl: requireEnv('DATABASE_URL'),
-
-    // Internal API
-    internalApiKey: process.env.INTERNAL_API_KEY,
 
     // CORS
     corsOrigins: (process.env.CORS_ORIGINS || 'http://localhost:3000')

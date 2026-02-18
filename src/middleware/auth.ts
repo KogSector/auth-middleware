@@ -137,22 +137,3 @@ export function requireRoles(...requiredRoles: string[]) {
     };
 }
 
-/**
- * Internal API key authentication (for service-to-service)
- */
-export function requireInternalApiKey(
-    req: AuthenticatedRequest,
-    res: Response,
-    next: NextFunction
-): void {
-    const apiKey = req.headers['x-api-key'] as string | undefined;
-
-    if (!apiKey || apiKey !== config.internalApiKey) {
-        res.status(401).json({
-            error: 'Invalid API key',
-        });
-        return;
-    }
-
-    next();
-}

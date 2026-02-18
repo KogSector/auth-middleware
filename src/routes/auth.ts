@@ -9,7 +9,7 @@ import { verifyAuth0Token, extractUserInfo, extractRoles } from '../services/aut
 import { findOrCreateByAuth0, findByAuth0Sub, toProfile } from '../services/user.js';
 import prisma from '../db/client.js';
 import { isAuthBypassEnabled, getBypassUser } from '../services/feature-toggle.js';
-import { requireAuth, requireInternalApiKey } from '../middleware/auth.js';
+import { requireAuth } from '../middleware/auth.js';
 import type { AuthenticatedRequest, AuthExchangeResponse, TokenVerifyResponse, Auth0Claims } from '../types/index.js';
 import { tokenCache } from '../services/cache.js';
 import { Auth0ManagementClient } from '../services/auth0.js';
@@ -146,7 +146,7 @@ router.get('/me', requireAuth as any, async (req: AuthenticatedRequest, res: Res
  * Verify Auth0 token (service-to-service)
  * Updated to verify Auth0 tokens instead of ConHub tokens
  */
-router.post('/verify', requireInternalApiKey as any, async (req: Request, res: Response) => {
+router.post('/verify', async (req: Request, res: Response) => {
     try {
         const { token } = req.body;
 
