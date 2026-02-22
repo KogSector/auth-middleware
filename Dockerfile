@@ -18,15 +18,19 @@ COPY auth-middleware/proto ./proto/
 # Copy shared library
 COPY shared-middleware/typescript/confuse-events ./shared-middleware/confuse-events
 
+# Copy feature-toggle SDK (referenced as file: dependency)
+COPY feature-context-toggle/sdk/typescript ./feature-toggle-sdk
+
 # Install and build shared library
 WORKDIR /app/shared-middleware/confuse-events
 RUN rm -rf package-lock.json && npm install && npm run build
 WORKDIR /app
 
 # Install ALL dependencies (including dev for building)
-# Patch @confuse/events path for Docker layout (./shared-middleware instead of ../../shared-middleware)
+# Patch paths for Docker layout (./shared-middleware and ./feature-toggle-sdk)
 RUN rm -rf package-lock.json && \
     sed -i 's|file:../shared-middleware|file:./shared-middleware|g' package.json && \
+    sed -i 's|file:../feature-context-toggle/sdk/typescript|file:./feature-toggle-sdk|g' package.json && \
     npm install
 
 # Copy source files

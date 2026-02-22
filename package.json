@@ -27,7 +27,8 @@
         "jsonwebtoken": "^9.0.2",
         "redis": "^5.10.0",
         "uuid": "^9.0.1",
-        "winston": "^3.11.0"
+        "winston": "^3.11.0",
+        "@confuse/feature-toggle-sdk": "file:../feature-context-toggle/sdk/typescript"
     },
     "devDependencies": {
         "@types/cors": "^2.8.17",

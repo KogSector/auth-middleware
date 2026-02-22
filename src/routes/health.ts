@@ -4,7 +4,7 @@
 
 import { Router, type Request, type Response } from 'express';
 import prisma from '../db/client.js';
-import { isAuthBypassEnabled } from '../services/feature-toggle.js';
+import { isAuthBypassEnabled } from '@confuse/feature-toggle-sdk';
 
 const router = Router();
 
