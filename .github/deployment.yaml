@@ -1,6 +1,56 @@
 # =============================================================================
 # Auth Middleware - Kubernetes Deployment
+# Covers ALL .env variables via ConfigMap (non-sensitive) + Secret (sensitive)
 # =============================================================================
+
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: auth-middleware-config
+  namespace: confuse-platform
+data:
+  SERVICE_NAME: "auth-middleware"
+  PORT: "3010"
+  GRPC_PORT: "50058"
+  NODE_ENV: "production"
+  # Auth0 (non-sensitive)
+  AUTH0_DOMAIN: "dev-pmspwseo1uaudyoi.jp.auth0.com"
+  AUTH0_ISSUER: "https://dev-pmspwseo1uaudyoi.jp.auth0.com"
+  AUTH0_AUDIENCE: "https://api.confuse.dev"
+  AUTH0_JWKS_URI: "https://dev-pmspwseo1uaudyoi.jp.auth0.com/.well-known/jwks.json"
+  AUTH0_MANAGEMENT_DOMAIN: "dev-pmspwseo1uaudyoi.jp.auth0.com"
+  # Token Cache
+  TOKEN_CACHE_TTL_SECONDS: "900"
+  # Feature Toggle Service
+  FEATURE_TOGGLE_SERVICE_URL: "http://feature-toggle:3099"
+  # CORS
+  CORS_ORIGINS: "https://confuse.platform.example.com"
+  # Frontend
+  FRONTEND_URL: "https://confuse.platform.example.com"
+
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: auth-middleware-secrets
+  namespace: confuse-platform
+type: Opaque
+stringData:
+  # Database (REQUIRED)
+  DATABASE_URL: "CHANGEME_postgresql://user:pass@host:5432/postgres?sslmode=require"
+  # Redis (REQUIRED)
+  REDIS_URL: "CHANGEME_redis://default:password@host:port"
+  # Auth0 Management API (REQUIRED)
+  AUTH0_CLIENT_ID: "CHANGEME_AUTH0_M2M_CLIENT_ID"
+  AUTH0_CLIENT_SECRET: "CHANGEME_AUTH0_M2M_CLIENT_SECRET"
+  # Internal API Key
+  INTERNAL_API_KEY: "CHANGEME_INTERNAL_API_KEY"
+  # Confluent Cloud (if Kafka events enabled)
+  CONFLUENT_API_KEY: "CHANGEME_CONFLUENT_API_KEY"
+  CONFLUENT_API_SECRET: "CHANGEME_CONFLUENT_API_SECRET"
+
+---
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -30,10 +80,6 @@ spec:
         - containerPort: 3010
           name: http
         envFrom:
-        - configMapRef:
-            name: global-config
-        - secretRef:
-            name: global-secrets
         - configMapRef:
             name: auth-middleware-config
         - secretRef:
@@ -69,9 +115,6 @@ spec:
           periodSeconds: 5
           timeoutSeconds: 3
           failureThreshold: 3
-        securityContext:
-          seccompProfile:
-            type: RuntimeDefault
 
 ---
 apiVersion: v1
@@ -79,8 +122,6 @@ kind: Service
 metadata:
   name: auth-middleware
   namespace: confuse-platform
-  labels:
-    app: auth-middleware
 spec:
   selector:
     app: auth-middleware
