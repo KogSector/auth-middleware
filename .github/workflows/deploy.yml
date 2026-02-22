@@ -1,0 +1,87 @@
+name: Deploy Auth Middleware
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'auth-middleware/**'
+  pull_request:
+    branches: [main]
+    paths:
+      - 'auth-middleware/**'
+  workflow_dispatch:
+
+env:
+  SERVICE_NAME: auth-middleware
+  SERVICE_DIR: auth-middleware
+  DOCKERFILE: Dockerfile
+
+jobs:
+  build-and-test:
+    runs-on: ubuntu-latest
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '22'
+
+    - name: Install dependencies
+      run: npm install
+
+    - name: Build
+      run: npm run build
+
+  deploy:
+    needs: build-and-test
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Azure Login
+      uses: azure/login@v2
+      with:
+        creds: ${{ secrets.AZURE_CREDENTIALS }}
+
+    - name: Login to ACR
+      uses: azure/docker-login@v2
+      with:
+        login-server: ${{ secrets.ACR_LOGIN_SERVER }}
+        username: ${{ secrets.ACR_USERNAME }}
+        password: ${{ secrets.ACR_PASSWORD }}
+
+    - name: Build and push image
+      run: |
+        IMAGE_TAG="${{ secrets.ACR_LOGIN_SERVER }}/${{ env.SERVICE_NAME }}:${{ github.sha }}"
+        IMAGE_LATEST="${{ secrets.ACR_LOGIN_SERVER }}/${{ env.SERVICE_NAME }}:latest"
+        docker build -f ${{ env.DOCKERFILE }} -t $IMAGE_TAG -t $IMAGE_LATEST .
+        docker push $IMAGE_TAG
+        docker push $IMAGE_LATEST
+
+    - name: Set AKS context
+      uses: azure/aks-set-context@v4
+      with:
+        resource-group: ${{ secrets.AKS_RESOURCE_GROUP }}
+        cluster-name: ${{ secrets.AKS_CLUSTER_NAME }}
+
+    - name: Update K8s deployment image
+      run: |
+        IMAGE_TAG="${{ secrets.ACR_LOGIN_SERVER }}/${{ env.SERVICE_NAME }}:${{ github.sha }}"
+        kubectl set image deployment/${{ env.SERVICE_NAME }} \
+          ${{ env.SERVICE_NAME }}=$IMAGE_TAG \
+          -n confuse-platform
+
+    - name: Apply K8s deployment file
+      run: |
+        kubectl apply -f .github/deployment.yaml
+
+    - name: Verify deployment
+      run: |
+        kubectl rollout status deployment/${{ env.SERVICE_NAME }} \
+          -n confuse-platform --timeout=120s
+
