@@ -5,10 +5,14 @@ on:
     branches: [main]
     paths:
       - 'auth-middleware/**'
+      - 'feature-context-toggle/sdk/typescript/**'
+      - '.github/workflows/deploy.yml'
   pull_request:
     branches: [main]
     paths:
       - 'auth-middleware/**'
+      - 'feature-context-toggle/sdk/typescript/**'
+      - '.github/workflows/deploy.yml'
   workflow_dispatch:
 
 env:
@@ -27,6 +31,14 @@ jobs:
       uses: actions/setup-node@v4
       with:
         node-version: '22'
+
+    - name: Install SDK dependencies
+      working-directory: ../feature-context-toggle/sdk/typescript
+      run: npm install
+
+    - name: Build SDK
+      working-directory: ../feature-context-toggle/sdk/typescript
+      run: npm run build
 
     - name: Install dependencies
       run: npm install
