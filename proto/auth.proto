@@ -9,6 +9,12 @@ service Auth {
   
   // User information
   rpc GetUser(GetUserRequest) returns (User);
+  
+  // API key validation
+  rpc ValidateApiKey(ValidateApiKeyRequest) returns (ValidateApiKeyResponse);
+  
+  // Refresh token validation
+  rpc RefreshToken(RefreshTokenRequest) returns (RefreshTokenResponse);
 }
 
 // Messages
@@ -32,4 +38,26 @@ message User {
   string email = 2;
   repeated string roles = 3;
   map<string, string> metadata = 4;
+}
+
+message ValidateApiKeyRequest {
+  string api_key = 1;
+}
+
+message ValidateApiKeyResponse {
+  bool valid = 1;
+  string key_id = 2;
+  repeated string roles = 3;
+  optional string error = 4;
+}
+
+message RefreshTokenRequest {
+  string refresh_token = 1;
+}
+
+message RefreshTokenResponse {
+  string access_token = 1;
+  string refresh_token = 2;
+  int64 expires_in = 3;
+  optional string error = 4;
 }
