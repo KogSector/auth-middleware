@@ -88,6 +88,28 @@ jobs:
           ${{ env.SERVICE_NAME }}=$IMAGE_TAG \
           -n confuse-platform
 
+    - name: Create ConfigMap from .env (non-sensitive values)
+      run: |
+        # Extract non-sensitive environment variables to ConfigMap
+        grep -v -E "(PASSWORD|SECRET|KEY|TOKEN)" .env > .env.configmap || true
+        if [ -s .env.configmap ]; then
+          kubectl create configmap auth-middleware-config \
+            --from-env-file=.env.configmap \
+            --namespace confuse-platform \
+            --dry-run=client -o yaml | kubectl apply -f -
+        fi
+
+    - name: Create Secret from .env (sensitive values)
+      run: |
+        # Extract only sensitive environment variables to Secret
+        grep -E "(PASSWORD|SECRET|KEY|TOKEN)" .env > .env.secret || true
+        if [ -s .env.secret ]; then
+          kubectl create secret generic auth-middleware-secrets \
+            --from-env-file=.env.secret \
+            --namespace confuse-platform \
+            --dry-run=client -o yaml | kubectl apply -f -
+        fi
+
     - name: Apply K8s deployment file
       run: |
         kubectl apply -f .github/deployment.yaml
