@@ -1,15 +1,12 @@
 # Node Service .dockerignore
-# Ignore everything by default
-**
-
-# Allow build context essentials
-!auth-middleware/
-!shared/
-
-# Specific ignores
-auth-middleware/node_modules
-auth-middleware/dist
-auth-middleware/.env
-auth-middleware/coverage
-shared/node_modules
-shared/dist
+# Ignore cache and temp files
+node_modules/
+dist/
+.env
+.env.*
+coverage/
+.git/
+.gitignore
+README.md
+Dockerfile*
+.dockerignore

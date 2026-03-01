@@ -7,7 +7,11 @@
 
 import type { Response, NextFunction } from 'express';
 import { verifyAuth0Token, extractRoles } from '../services/auth0.js';
-import { isAuthBypassEnabled, getBypassUser } from '@confuse/feature-toggle-sdk';
+// import { isAuthBypassEnabled, getBypassUser } from '@confuse/feature-toggle-sdk';
+
+// Stub implementations
+const isAuthBypassEnabled = () => false;
+const getBypassUser = () => null;
 import { config } from '../config.js';
 import type { AuthenticatedRequest, Auth0Claims } from '../types/index.js';
 

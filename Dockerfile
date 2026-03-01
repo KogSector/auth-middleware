@@ -8,34 +8,18 @@ WORKDIR /app
 RUN apt-get update && apt-get install -y openssl && rm -rf /var/lib/apt/lists/*
 
 # Copy package files
-COPY auth-middleware/package*.json ./
-COPY auth-middleware/tsconfig.json ./
+COPY package*.json ./
+COPY tsconfig.json ./
 
 # Copy source files
-COPY auth-middleware/src ./src/
-COPY auth-middleware/proto ./proto/
+COPY src ./src/
+COPY proto ./proto/
 
-# Copy shared library
-COPY shared-middleware/typescript/confuse-events ./shared-middleware/confuse-events
+# Install ALL dependencies
+RUN npm install
 
-# Copy feature-toggle SDK (referenced as file: dependency)
-COPY feature-context-toggle/sdk/typescript ./feature-toggle-sdk
-
-# Install and build shared library
-WORKDIR /app/shared-middleware/confuse-events
-RUN rm -rf package-lock.json && npm install && npm run build
-WORKDIR /app
-
-# Install ALL dependencies (including dev for building)
-# Patch paths for Docker layout (./shared-middleware and ./feature-toggle-sdk)
-RUN rm -rf package-lock.json && \
-    sed -i 's|file:../shared-middleware|file:./shared-middleware|g' package.json && \
-    sed -i 's|file:../feature-context-toggle/sdk/typescript|file:./feature-toggle-sdk|g' package.json && \
-    npm install
-
-# Copy source files
-COPY auth-middleware/prisma ./prisma/
-COPY auth-middleware/src ./src/
+# Copy prisma schema
+COPY prisma ./prisma/
 
 # Generate Prisma client
 RUN npx prisma generate

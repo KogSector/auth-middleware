@@ -8,7 +8,11 @@ import { Router, type Request, type Response } from 'express';
 import { verifyAuth0Token, extractUserInfo, extractRoles } from '../services/auth0.js';
 import { findOrCreateByAuth0, findByAuth0Sub, toProfile } from '../services/user.js';
 import prisma from '../db/client.js';
-import { isAuthBypassEnabled, getBypassUser } from '@confuse/feature-toggle-sdk';
+// import { isAuthBypassEnabled, getBypassUser } from '@confuse/feature-toggle-sdk';
+
+// Stub implementations
+const isAuthBypassEnabled = () => false;
+const getBypassUser = () => null;
 import { requireAuth } from '../middleware/auth.js';
 import type { AuthenticatedRequest, AuthExchangeResponse, TokenVerifyResponse, Auth0Claims } from '../types/index.js';
 import { tokenCache } from '../services/cache.js';

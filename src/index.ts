@@ -10,7 +10,7 @@ import helmet from 'helmet';
 import { config } from './config.js';
 import authRoutes from './routes/auth.js';
 import healthRoutes from './routes/health.js';
-import { initToggleClient } from '@confuse/feature-toggle-sdk';
+// import { initToggleClient } from '@confuse/feature-toggle-sdk';
 import { logger } from './utils/logger.js';
 import { rateLimitMiddleware, initRedis } from './middleware/rate-limiter.js';
 import { securityHeadersMiddleware } from './middleware/security-headers.js';
@@ -18,14 +18,13 @@ import { startGrpcServer } from './grpc.js';
 
 // Initialize feature toggle client using canonical SDK
 logger.info('[AUTH-MIDDLEWARE] Initializing feature toggle client...');
-initToggleClient({
-    serviceUrl: config.featureToggleServiceUrl,
-    serviceName: 'auth-middleware',
-    cacheTtlMs: 5000,
-    timeoutMs: 2000,
-    defaultEnabled: false,
-});
-logger.info(`[AUTH-MIDDLEWARE] Feature toggle client initialized (SDK mode) - URL: ${config.featureToggleServiceUrl}`);
+// initToggleClient({
+//     serviceUrl: config.featureToggleServiceUrl,
+//     serviceName: 'auth-middleware',
+//     apiKey: config.featureToggleApiKey,
+//     pollIntervalMs: 30000,
+// });
+logger.info('[AUTH-MIDDLEWARE] Feature toggle client initialized (stub)'); 
 // Initialize Redis for rate limiting
 initRedis();
 
