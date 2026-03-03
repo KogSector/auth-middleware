@@ -34,9 +34,9 @@ spec:
           name: http
         envFrom:
         - configMapRef:
-            name: confuse-config
+            name: auth-middleware-config
         - secretRef:
-            name: confuse-secrets
+            name: auth-middleware-secrets
         resources:
           requests:
             memory: "128Mi"
