@@ -11,9 +11,9 @@ import { verifyAuth0Token, extractRoles } from '../services/auth0.js';
 
 // Stub implementations
 const isAuthBypassEnabled = () => false;
-const getBypassUser = () => null;
+const getBypassUser = (): DemoUser | null => null;
 import { config } from '../config.js';
-import type { AuthenticatedRequest, Auth0Claims } from '../types/index.js';
+import type { AuthenticatedRequest, Auth0Claims, DemoUser } from '../types/index.js';
 
 /**
  * Extract bearer token from Authorization header

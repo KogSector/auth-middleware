@@ -8,7 +8,7 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: auth-middleware
-  namespace: confuse-platform
+  namespace: confuse
   labels:
     app: auth-middleware
     version: v1
@@ -27,7 +27,7 @@ spec:
       - name: acr-secret
       containers:
       - name: auth-middleware
-        image: "confuseimgr.azurecr.io/auth-middleware:latest"
+        image: "confuseimgr.azurecr.io/auth-middleware:1.0"
         imagePullPolicy: Always
         ports:
         - containerPort: 3010
@@ -74,7 +74,7 @@ apiVersion: v1
 kind: Service
 metadata:
   name: auth-middleware
-  namespace: confuse-platform
+  namespace: confuse
 spec:
   selector:
     app: auth-middleware
