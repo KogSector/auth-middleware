@@ -4,7 +4,7 @@
  * Loads environment variables with validation
  */
 
-import 'dotenv/config';
+import dotenv from 'dotenv';
 import * as fs from 'fs';
 import * as path from 'path';
 
@@ -17,6 +17,9 @@ interface Auth0Config {
     clientSecret?: string;
     managementDomain?: string;
 }
+
+dotenv.config({ path: '.env.map' });
+dotenv.config({ path: '.env.secret' });
 
 
 
