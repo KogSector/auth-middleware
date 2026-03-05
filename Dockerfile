@@ -8,18 +8,18 @@ WORKDIR /app
 RUN apt-get update && apt-get install -y openssl && rm -rf /var/lib/apt/lists/*
 
 # Copy package files
-COPY package*.json ./
-COPY tsconfig.json ./
+COPY auth-middleware/package*.json ./
+COPY auth-middleware/tsconfig.json ./
 
 # Copy source files
-COPY src ./src/
+COPY auth-middleware/src ./src/
 COPY proto ./proto/
 
 # Install ALL dependencies
 RUN npm install
 
 # Copy prisma schema
-COPY prisma ./prisma/
+COPY auth-middleware/prisma ./prisma/
 
 # Generate Prisma client
 RUN npx prisma generate
@@ -40,9 +40,6 @@ RUN apt-get update && apt-get install -y openssl wget && rm -rf /var/lib/apt/lis
 
 # Copy node_modules from builder (already pruned to production deps)
 COPY --from=builder /app/node_modules ./node_modules
-
-# Copy shared-middleware built artifacts (needed for @confuse/events runtime)
-COPY --from=builder /app/shared-middleware ./shared-middleware
 
 # Copy Prisma schema and generated client
 COPY auth-middleware/prisma ./prisma/
