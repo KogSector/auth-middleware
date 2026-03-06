@@ -133,10 +133,15 @@ export async function verifyAuth0Token(token: string): Promise<Auth0Claims> {
     }
 
     try {
+        console.log('Verifying Auth0 token with issuer:', config.auth0.issuer);
+        
         const { payload } = await jwtVerify(token, getJWKS(), {
             issuer: config.auth0.issuer,
             audience: config.auth0.audience,
         });
+
+        console.log('Token payload issuer:', payload.iss);
+        console.log('Expected issuer:', config.auth0.issuer);
 
         // DSA: Cache successful verification - O(1)
         tokenCache.set(token, payload);
