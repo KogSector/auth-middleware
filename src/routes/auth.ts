@@ -8,11 +8,7 @@ import { Router, type Request, type Response } from 'express';
 import { verifyAuth0Token, extractUserInfo, extractRoles } from '../services/auth0.js';
 import { findOrCreateByAuth0, findByAuth0Sub, toProfile } from '../services/user.js';
 import prisma from '../db/client.js';
-// import { isAuthBypassEnabled, getBypassUser } from '@confuse/feature-toggle-sdk';
 
-// Stub implementations
-const isAuthBypassEnabled = () => false;
-const getBypassUser = () => null;
 import { requireAuth } from '../middleware/auth.js';
 import type { AuthenticatedRequest, AuthExchangeResponse, TokenVerifyResponse, Auth0Claims } from '../types/index.js';
 import { tokenCache } from '../services/cache.js';
@@ -100,24 +96,6 @@ router.post('/login', async (req: Request, res: Response) => {
  */
 router.get('/me', requireAuth as any, async (req: AuthenticatedRequest, res: Response) => {
     try {
-        // If using bypass, return demo user directly
-        if (req.user && 'id' in req.user && !('sub' in req.user)) {
-            // This is a demo user from bypass (DemoUser type)
-            const demoUser = req.user as any;
-            res.json({
-                user: {
-                    id: demoUser.id,
-                    email: demoUser.email,
-                    name: demoUser.name,
-                    roles: demoUser.roles,
-                    picture: null,
-                    createdAt: new Date().toISOString(),
-                },
-                bypass: true,
-            });
-            return;
-        }
-
         // Normal flow - req.user is Auth0Claims
         const claims = req.user as Auth0Claims;
         const user = await findByAuth0Sub(claims.sub);
@@ -187,12 +165,6 @@ router.post('/verify', async (req: Request, res: Response) => {
  */
 router.get('/connections', requireAuth as any, async (req: AuthenticatedRequest, res: Response) => {
     try {
-        // Bypass check
-        if (req.user && 'id' in req.user && !('sub' in req.user)) {
-            res.json({ success: true, data: [] }); // Empty for demo user for now
-            return;
-        }
-
         const claims = req.user as Auth0Claims;
         const user = await findByAuth0Sub(claims.sub);
 
@@ -351,12 +323,6 @@ router.delete('/connections/:provider', requireAuth as any, async (req: Authenti
     try {
         const { provider } = req.params;
 
-        // Bypass check
-        if (req.user && 'id' in req.user && !('sub' in req.user)) {
-            res.json({ success: true, provider });
-            return;
-        }
-
         const claims = req.user as Auth0Claims;
         const user = await findByAuth0Sub(claims.sub);
 
@@ -391,12 +357,6 @@ router.delete('/connections/:provider', requireAuth as any, async (req: Authenti
  */
 router.post('/connections/sync', requireAuth as any, async (req: AuthenticatedRequest, res: Response) => {
     try {
-        // Bypass check
-        if (req.user && 'id' in req.user && !('sub' in req.user)) {
-            res.json({ success: true, synced: 0, connections: [] });
-            return;
-        }
-
         const claims = req.user as Auth0Claims;
         const user = await findByAuth0Sub(claims.sub);
 

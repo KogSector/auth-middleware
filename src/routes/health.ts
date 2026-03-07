@@ -4,10 +4,6 @@
 
 import { Router, type Request, type Response } from 'express';
 import prisma from '../db/client.js';
-// import { isAuthBypassEnabled } from '@confuse/feature-toggle-sdk';
-
-// Stub implementation
-const isAuthBypassEnabled = () => false;
 
 const router = Router();
 
@@ -18,7 +14,6 @@ const router = Router();
  */
 router.get('/health', async (_req: Request, res: Response) => {
     let dbStatus = 'unknown';
-    let authBypassStatus = 'unknown';
 
     // Check database connection
     try {
@@ -28,19 +23,10 @@ router.get('/health', async (_req: Request, res: Response) => {
         dbStatus = 'disconnected';
     }
 
-    // Check auth bypass status
-    try {
-        const enabled = await isAuthBypassEnabled();
-        authBypassStatus = enabled ? 'enabled' : 'disabled';
-    } catch {
-        authBypassStatus = 'unavailable';
-    }
-
     res.json({
         status: 'healthy',
         service: 'auth-middleware',
         database: dbStatus,
-        authBypass: authBypassStatus,
         timestamp: new Date().toISOString(),
     });
 });

@@ -10,21 +10,11 @@ import helmet from 'helmet';
 import { config } from './config.js';
 import authRoutes from './routes/auth.js';
 import healthRoutes from './routes/health.js';
-// import { initToggleClient } from '@confuse/feature-toggle-sdk';
 import { logger } from './utils/logger.js';
 import { rateLimitMiddleware, initRedis } from './middleware/rate-limiter.js';
 import { securityHeadersMiddleware } from './middleware/security-headers.js';
 import { startGrpcServer } from './grpc.js';
 
-// Initialize feature toggle client using canonical SDK
-logger.info('[AUTH-MIDDLEWARE] Initializing feature toggle client...');
-// initToggleClient({
-//     serviceUrl: config.featureToggleServiceUrl,
-//     serviceName: 'auth-middleware',
-//     apiKey: config.featureToggleApiKey,
-//     pollIntervalMs: 30000,
-// });
-logger.info('[AUTH-MIDDLEWARE] Feature toggle client initialized (stub)'); 
 // Initialize Redis for rate limiting
 initRedis();
 
@@ -125,7 +115,6 @@ app.listen(PORT, () => {
     logger.info(`║  🚀 Server running on http://localhost:${PORT}            ║`);
     logger.info(`║  📊 Environment: ${config.nodeEnv.padEnd(37)}║`);
     logger.info(`║  🌐 Auth0 Domain: ${config.auth0.domain.substring(0, 35).padEnd(36)}║`);
-    logger.info(`║  🎛️  Feature toggles: ${config.featureToggleServiceUrl.substring(0, 31).padEnd(32)}║`);
     logger.info('╚══════════════════════════════════════════════════════════╝');
     logger.info('');
 

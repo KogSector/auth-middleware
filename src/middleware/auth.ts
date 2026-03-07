@@ -2,18 +2,12 @@
  * ConFuse Auth Middleware - Express Auth Middleware
  * 
  * Middleware functions for protecting routes with Auth0
- * Includes feature toggle bypass support for development
  */
 
 import type { Response, NextFunction } from 'express';
 import { verifyAuth0Token, extractRoles } from '../services/auth0.js';
-// import { isAuthBypassEnabled, getBypassUser } from '@confuse/feature-toggle-sdk';
-
-// Stub implementations
-const isAuthBypassEnabled = () => false;
-const getBypassUser = (): DemoUser | null => null;
 import { config } from '../config.js';
-import type { AuthenticatedRequest, Auth0Claims, DemoUser } from '../types/index.js';
+import type { AuthenticatedRequest, Auth0Claims } from '../types/index.js';
 
 /**
  * Extract bearer token from Authorization header
@@ -34,23 +28,6 @@ export async function requireAuth(
     res: Response,
     next: NextFunction
 ): Promise<void> {
-    // Check if auth bypass is enabled (feature toggle)
-    try {
-        if (await isAuthBypassEnabled()) {
-            const demoUser = await getBypassUser();
-            if (demoUser) {
-                console.log('🔓 Auth bypass enabled - using demo user:', demoUser.email);
-                req.user = demoUser;
-                next();
-                return;
-            }
-        }
-    } catch (error) {
-        // If feature toggle check fails, continue with normal auth
-        console.warn('Feature toggle check failed, proceeding with normal auth');
-    }
-
-    // Normal authentication flow
     const token = extractBearerToken(req);
 
     if (!token) {
@@ -84,20 +61,6 @@ export async function optionalAuth(
     res: Response,
     next: NextFunction
 ): Promise<void> {
-    // Check if auth bypass is enabled
-    try {
-        if (await isAuthBypassEnabled()) {
-            const demoUser = await getBypassUser();
-            if (demoUser) {
-                req.user = demoUser;
-                next();
-                return;
-            }
-        }
-    } catch {
-        // Ignore feature toggle errors for optional auth
-    }
-
     const token = extractBearerToken(req);
 
     if (token) {
