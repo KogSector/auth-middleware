@@ -5,6 +5,10 @@
  */
 
 import { Router, type Request, type Response } from 'express';
+
+// Resolve TypeScript error for native fetch in Node 18+
+declare const fetch: any;
+
 import { verifyAuth0Token, extractUserInfo, extractRoles } from '../services/auth0.js';
 import { findOrCreateByAuth0, findByAuth0Sub, toProfile } from '../services/user.js';
 import prisma from '../db/client.js';
@@ -14,6 +18,7 @@ import type { AuthenticatedRequest, AuthExchangeResponse, TokenVerifyResponse, A
 import { tokenCache } from '../services/cache.js';
 import { Auth0ManagementClient } from '../services/auth0.js';
 import { oAuthStateService } from '../services/oauth.js';
+import { config } from '../config.js';
 
 const router = Router();
 
@@ -51,14 +56,70 @@ router.post('/login', async (req: Request, res: Response) => {
             return;
         }
 
+        // Fetch user profile from Auth0 /userinfo endpoint
+        // Access tokens often lack 'name' and 'email' claims by default
+        let userInfo: any = {};
+        let providerName: string | null = null;
+        try {
+            // @ts-ignore
+            const userInfoRes = await fetch(`https://${config.auth0.domain}/userinfo`, {
+                headers: { 'Authorization': authHeader }
+            });
+            if (userInfoRes.ok) {
+                userInfo = await userInfoRes.json();
+            }
+
+            // Fetch from Auth0 Management API to get IdP access tokens for direct Google/Microsoft queries
+            try {
+                const mgmtClient = Auth0ManagementClient.getInstance();
+                const fullProfile = await mgmtClient.getUserProfile(claims.sub);
+
+                userInfo = { ...userInfo, ...fullProfile };
+
+                // Directly query Google or Microsoft APIs for the full name if access token is available
+                const identities = fullProfile.identities || [];
+                for (const identity of identities) {
+                    if (identity.provider === 'google-oauth2' && identity.access_token) {
+                        // @ts-ignore
+                        const googleRes = await fetch('https://www.googleapis.com/oauth2/v3/userinfo', {
+                            headers: { Authorization: `Bearer ${identity.access_token}` }
+                        });
+                        if (googleRes.ok) {
+                            const googleUser = await googleRes.json();
+                            providerName = googleUser.name || `${googleUser.given_name || ''} ${googleUser.family_name || ''}`.trim();
+                            if (providerName) break;
+                        }
+                    } else if (identity.provider === 'windowslive' && identity.access_token) {
+                        // @ts-ignore
+                        const msRes = await fetch('https://graph.microsoft.com/v1.0/me', {
+                            headers: { Authorization: `Bearer ${identity.access_token}` }
+                        });
+                        if (msRes.ok) {
+                            const msUser = await msRes.json();
+                            providerName = msUser.displayName || msUser.givenName;
+                            if (providerName) break;
+                        }
+                    }
+                }
+            } catch (mgmtErr) {
+                console.warn('Failed to fetch rich profile from Management API:', mgmtErr);
+            }
+        } catch (e) {
+            console.error('Error fetching /userinfo from Auth0:', e);
+        }
+
+        const mergedClaims = { ...claims, ...userInfo } as any;
+
         // Extract user info
-        const { auth0Sub, email, name, picture } = extractUserInfo(claims);
-        const roles = extractRoles(claims);
+        const { auth0Sub, email, name: extractedName, picture } = extractUserInfo(mergedClaims);
+        const roles = extractRoles(mergedClaims);
+
+        const finalName = providerName || extractedName;
 
         if (!email) {
             res.status(400).json({
                 error: 'Missing email',
-                message: 'Auth0 token must include email claim',
+                message: 'Auth0 token or userinfo must include email claim',
             });
             return;
         }
@@ -67,7 +128,7 @@ router.post('/login', async (req: Request, res: Response) => {
         const user = await findOrCreateByAuth0({
             auth0Sub,
             email,
-            name,
+            name: finalName,
             picture,
             roles,
         });

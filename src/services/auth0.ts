@@ -134,7 +134,7 @@ export async function verifyAuth0Token(token: string): Promise<Auth0Claims> {
 
     try {
         console.log('Verifying Auth0 token with issuer:', config.auth0.issuer);
-        
+
         const { payload } = await jwtVerify(token, getJWKS(), {
             issuer: config.auth0.issuer,
             audience: config.auth0.audience,
@@ -178,10 +178,16 @@ export function extractUserInfo(claims: Auth0Claims): Auth0UserInfo {
         email = `${sanitizedSub}@auth0.local`;
     }
 
+    const rawName = claims.name || claims.nickname || claims.given_name || claims.family_name;
+    let name: string | null = typeof rawName === 'string' ? rawName : null;
+    if (!name && email) {
+        name = email.split('@')[0];
+    }
+
     return {
         auth0Sub: claims.sub,
         email,
-        name: claims.name || null,
+        name,
         picture: claims.picture || null,
     };
 }
@@ -276,12 +282,10 @@ export class Auth0ManagementClient {
     }
 
     /**
-     * Get User Identities (including IdP tokens)
-     * Requires the M2M app to have `read:user_idp_tokens` scope
+     * Get Full User Profile from Auth0 Management API
      */
-    async getUserIdentities(userId: string): Promise<any[]> {
+    async getUserProfile(userId: string): Promise<any> {
         const token = await this.getAccessToken();
-        // safe userId encoding
         const encodedUserId = encodeURIComponent(userId);
 
         const response = await fetch(`https://${config.auth0.managementDomain}/api/v2/users/${encodedUserId}`, {
@@ -294,7 +298,15 @@ export class Auth0ManagementClient {
             throw new Error(`Failed to fetch user details: ${response.status}`);
         }
 
-        const user: any = await response.json();
+        return await response.json();
+    }
+
+    /**
+     * Get User Identities (including IdP tokens)
+     * Requires the M2M app to have `read:user_idp_tokens` scope
+     */
+    async getUserIdentities(userId: string): Promise<any[]> {
+        const user = await this.getUserProfile(userId);
         return user.identities || [];
     }
 }
