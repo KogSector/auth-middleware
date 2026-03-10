@@ -309,4 +309,25 @@ export class Auth0ManagementClient {
         const user = await this.getUserProfile(userId);
         return user.identities || [];
     }
+
+    /**
+     * Get Users By Email
+     * Finds all Auth0 profiles associated with an email address
+     */
+    async getUsersByEmail(email: string): Promise<any[]> {
+        const token = await this.getAccessToken();
+        const response = await fetch(`https://${config.auth0.managementDomain}/api/v2/users-by-email?email=${encodeURIComponent(email)}`, {
+            headers: {
+                Authorization: `Bearer ${token}`,
+            },
+        });
+
+        if (!response.ok) {
+            const text = await response.text();
+            console.error('Auth0 getUsersByEmail Error:', response.status, text);
+            throw new Error(`Failed to fetch users by email: ${response.status}`);
+        }
+
+        return await response.json();
+    }
 }

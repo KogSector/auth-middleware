@@ -79,6 +79,19 @@ app.use('/auth', authRoutes);
 // Internal routes (service-to-service)
 app.use('/internal', authRoutes);
 
+// User Stats (Dashboard mock data)
+app.get('/api/users/stats', (req: Request, res: Response) => {
+    res.json({
+        context_requests: 1247,
+        security_score: 98,
+        total_users: 1,
+        active_users: 1,
+        api_calls: 3450,
+        storage_used: 1024 * 1024 * 50,
+        bandwidth_used: 1024 * 1024 * 100
+    });
+});
+
 // 404 handler
 app.use((req: Request, res: Response) => {
     logger.warn(`[AUTH-MIDDLEWARE] [404] Route not found: ${req.method} ${req.path}`);

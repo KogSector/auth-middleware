@@ -426,39 +426,46 @@ router.post('/connections/sync', requireAuth as any, async (req: AuthenticatedRe
             return;
         }
 
-        const identities = await Auth0ManagementClient.getInstance().getUserIdentities(user.auth0Sub);
+        const mgmtClient = Auth0ManagementClient.getInstance();
+        // Step 1: Query Auth0 for all users that share the exact same email
+        const auth0Users = await mgmtClient.getUsersByEmail(user.email);
 
         const results = [];
 
-        for (const identity of identities) {
-            const providerName = identity.provider.replace('-oauth2', '');
+        // Step 2: Iterate over every matching user profile, and every identity within those profiles
+        for (const auth0User of auth0Users) {
+            const identities = auth0User.identities || [];
 
-            if (!identity.access_token) {
-                continue;
-            }
+            for (const identity of identities) {
+                const providerName = identity.provider.replace('-oauth2', '');
 
-            const account = await prisma.account.upsert({
-                where: {
-                    provider_providerAccountId: {
-                        provider: providerName,
-                        providerAccountId: identity.user_id,
+                if (!identity.access_token) {
+                    continue;
+                }
+
+                const account = await prisma.account.upsert({
+                    where: {
+                        provider_providerAccountId: {
+                            provider: providerName,
+                            providerAccountId: String(identity.user_id),
+                        },
                     },
-                },
-                update: {
-                    access_token: identity.access_token,
-                    refresh_token: identity.refresh_token || undefined,
-                    userId: user.id // Ensure ownership
-                },
-                create: {
-                    userId: user.id,
-                    type: 'oauth',
-                    provider: providerName,
-                    providerAccountId: identity.user_id,
-                    access_token: identity.access_token,
-                    refresh_token: identity.refresh_token,
-                },
-            });
-            results.push(account);
+                    update: {
+                        access_token: identity.access_token,
+                        refresh_token: identity.refresh_token || undefined,
+                        userId: user.id // Ensure it correctly maps back to the primary ConFuse user
+                    },
+                    create: {
+                        userId: user.id,
+                        type: 'oauth',
+                        provider: providerName,
+                        providerAccountId: String(identity.user_id),
+                        access_token: identity.access_token,
+                        refresh_token: identity.refresh_token,
+                    },
+                });
+                results.push(account);
+            }
         }
 
         res.json({
@@ -477,6 +484,46 @@ router.post('/connections/sync', requireAuth as any, async (req: AuthenticatedRe
             success: false,
             error: 'Internal server error',
         });
+    }
+});
+
+/**
+ * GET /auth/connections/:provider/token
+ * Fetch the decrypted access token for a connected provider
+ */
+router.get('/connections/:provider/token', requireAuth as any, async (req: AuthenticatedRequest, res: Response) => {
+    try {
+        const { provider } = req.params;
+        const claims = req.user as Auth0Claims;
+        const user = await findByAuth0Sub(claims.sub);
+
+        if (!user) {
+            res.status(404).json({ error: 'User not found' });
+            return;
+        }
+
+        // We lookup the account that matches this user and provider
+        const account = await prisma.account.findFirst({
+            where: {
+                userId: user.id,
+                provider: provider,
+            }
+        });
+
+        if (!account || !account.access_token) {
+            res.status(404).json({ error: `Connection for ${provider} not found or missing access token` });
+            return;
+        }
+
+        res.json({
+            success: true,
+            provider,
+            access_token: account.access_token
+        });
+
+    } catch (error) {
+        console.error('Fetch token error:', error);
+        res.status(500).json({ error: 'Internal server error' });
     }
 });
 
