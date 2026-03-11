@@ -7,6 +7,7 @@
 import express, { type Request, type Response, type NextFunction } from 'express';
 import cors from 'cors';
 import helmet from 'helmet';
+import { auth } from 'express-oauth2-jwt-bearer';
 import { config } from './config.js';
 import authRoutes from './routes/auth.js';
 import healthRoutes from './routes/health.js';
@@ -19,6 +20,15 @@ import { startGrpcServer } from './grpc.js';
 initRedis();
 
 const app = express();
+
+// Auth0 JWT validation middleware (express-oauth2-jwt-bearer)
+const jwtCheck = auth({
+    audience: config.auth0.audience,
+    issuerBaseURL: config.auth0.issuer,
+    tokenSigningAlg: config.auth0.jwtAlgorithm,
+});
+
+logger.info(`[AUTH-MIDDLEWARE] JWT Check configured — audience: ${config.auth0.audience}, issuer: ${config.auth0.issuer}`);
 
 // Security middleware
 logger.info('[AUTH-MIDDLEWARE] Setting up security middleware...');
@@ -70,7 +80,18 @@ app.use((req: Request, res: Response, next: NextFunction) => {
 });
 
 // Routes
+// Public routes — no JWT required
 app.use('/', healthRoutes);
+
+// Protected test endpoint — validates Auth0 JWT via express-oauth2-jwt-bearer
+app.get('/authorized', jwtCheck, (req: Request, res: Response) => {
+    res.json({
+        message: 'Secured Resource',
+        timestamp: new Date().toISOString(),
+    });
+});
+
+// Auth routes — use their own requireAuth middleware internally
 app.use('/api/auth', authRoutes);
 
 // Legacy route compatibility
@@ -101,11 +122,13 @@ app.use((req: Request, res: Response) => {
     });
 });
 
-// Error handler
-app.use((err: Error, req: Request, res: Response, _next: NextFunction) => {
-    logger.error(`[AUTH-MIDDLEWARE] [ERROR] Unhandled error: ${err.message}`, { stack: err.stack });
-    res.status(500).json({
-        error: 'Internal server error',
+// Error handler (supports express-oauth2-jwt-bearer UnauthorizedError with status property)
+app.use((err: Error & { status?: number }, req: Request, res: Response, _next: NextFunction) => {
+    const statusCode = err.status || 500;
+    const logLevel = statusCode >= 500 ? 'error' : 'warn';
+    logger[logLevel](`[AUTH-MIDDLEWARE] [ERROR] ${err.message}`, { status: statusCode, stack: err.stack });
+    res.status(statusCode).json({
+        error: statusCode === 401 ? 'Unauthorized' : 'Internal server error',
         message: config.nodeEnv === 'development' ? err.message : undefined,
     });
 });
