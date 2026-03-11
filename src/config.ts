@@ -37,6 +37,7 @@ interface Config {
     featureToggleServiceUrl: string;
     frontendUrl: string;
     grpcPort: number;
+    internalApiKey: string;
 }
 
 function requireEnv(name: string): string {
@@ -99,4 +100,7 @@ export const config: Config = {
 
     // gRPC Server Port
     grpcPort: parseInt(process.env.GRPC_PORT || '50058', 10),
+
+    // Internal API Key
+    internalApiKey: process.env.INTERNAL_API_KEY || 'default-internal-key',
 };

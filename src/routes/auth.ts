@@ -527,4 +527,49 @@ router.get('/connections/:provider/token', requireAuth as any, async (req: Authe
     }
 });
 
+/**
+ * POST /internal/tokens
+ * Fetch the decrypted access token for a connected provider using internal API key
+ */
+router.post('/internal/tokens', async (req: Request, res: Response) => {
+    try {
+        const apiKey = req.headers['x-api-key'];
+        if (apiKey !== config.internalApiKey) {
+            res.status(403).json({ error: 'Invalid internal API key' });
+            return;
+        }
+
+        const { userId, provider } = req.body;
+
+        if (!userId || !provider) {
+            res.status(400).json({ error: 'Missing userId or provider' });
+            return;
+        }
+
+        const account = await prisma.account.findFirst({
+            where: {
+                userId,
+                provider,
+            }
+        });
+
+        if (!account || !account.access_token) {
+            res.status(404).json({ error: `Connection for ${provider} not found or missing access token` });
+            return;
+        }
+
+        res.json({
+            success: true,
+            provider,
+            access_token: account.access_token,
+            refresh_token: account.refresh_token,
+            token_type: 'Bearer' // Add if needed
+        });
+
+    } catch (error) {
+        console.error('Internal fetch token error:', error);
+        res.status(500).json({ error: 'Internal server error' });
+    }
+});
+
 export default router;
