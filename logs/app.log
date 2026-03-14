@@ -52,3 +52,5 @@
 {"level":"info","message":""}
 {"level":"info","message":"[gRPC] Server running on port 50058"}
 {"level":"info","message":"[RATE-LIMIT] Redis connected"}
+{"level":"warn","message":"[RATE-LIMIT] Redis error, falling back to in-memory: read ECONNRESET"}
+{"level":"info","message":"[RATE-LIMIT] Redis connected"}
