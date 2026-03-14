@@ -1,0 +1,54 @@
+{"level":"info","message":"[AUTH-MIDDLEWARE] Setting up security middleware..."}
+{"level":"info","message":"[AUTH-MIDDLEWARE] =================================================="}
+{"level":"info","message":"[AUTH-MIDDLEWARE] Starting Auth Middleware Service..."}
+{"level":"info","message":"[AUTH-MIDDLEWARE] =================================================="}
+{"level":"info","message":"[AUTH-MIDDLEWARE] Timestamp: 2026-03-14T13:29:59.935Z"}
+{"level":"info","message":"[AUTH-MIDDLEWARE] Node version: v25.7.0"}
+{"level":"info","message":"[AUTH-MIDDLEWARE] Environment: production"}
+{"level":"info","message":""}
+{"level":"info","message":"╔══════════════════════════════════════════════════════════╗"}
+{"level":"info","message":"║        🔐 ConFuse Auth Middleware (TypeScript)           ║"}
+{"level":"info","message":"╠══════════════════════════════════════════════════════════╣"}
+{"level":"info","message":"║  🚀 Server running on http://localhost:3010            ║"}
+{"level":"info","message":"║  📊 Environment: production                           ║"}
+{"level":"info","message":"║  🌐 Auth0 Domain: dev-pmspwseo1uaudyoi.jp.auth0.com   ║"}
+{"level":"info","message":"╚══════════════════════════════════════════════════════════╝"}
+{"level":"info","message":""}
+{"level":"info","message":"[gRPC] Server running on port 50058"}
+{"level":"info","message":"[RATE-LIMIT] Redis connected"}
+{"level":"info","message":"[AUTH-MIDDLEWARE] Setting up security middleware..."}
+{"level":"info","message":"[AUTH-MIDDLEWARE] =================================================="}
+{"level":"info","message":"[AUTH-MIDDLEWARE] Starting Auth Middleware Service..."}
+{"level":"info","message":"[AUTH-MIDDLEWARE] =================================================="}
+{"level":"info","message":"[AUTH-MIDDLEWARE] Timestamp: 2026-03-14T13:54:54.888Z"}
+{"level":"info","message":"[AUTH-MIDDLEWARE] Node version: v25.7.0"}
+{"level":"info","message":"[AUTH-MIDDLEWARE] Environment: production"}
+{"level":"info","message":""}
+{"level":"info","message":"╔══════════════════════════════════════════════════════════╗"}
+{"level":"info","message":"║        🔐 ConFuse Auth Middleware (TypeScript)           ║"}
+{"level":"info","message":"╠══════════════════════════════════════════════════════════╣"}
+{"level":"info","message":"║  🚀 Server running on http://localhost:3010            ║"}
+{"level":"info","message":"║  📊 Environment: production                           ║"}
+{"level":"info","message":"║  🌐 Auth0 Domain: dev-pmspwseo1uaudyoi.jp.auth0.com   ║"}
+{"level":"info","message":"╚══════════════════════════════════════════════════════════╝"}
+{"level":"info","message":""}
+{"level":"info","message":"[gRPC] Server running on port 50058"}
+{"level":"info","message":"[RATE-LIMIT] Redis connected"}
+{"level":"info","message":"[AUTH-MIDDLEWARE] Setting up security middleware..."}
+{"level":"info","message":"[AUTH-MIDDLEWARE] =================================================="}
+{"level":"info","message":"[AUTH-MIDDLEWARE] Starting Auth Middleware Service..."}
+{"level":"info","message":"[AUTH-MIDDLEWARE] =================================================="}
+{"level":"info","message":"[AUTH-MIDDLEWARE] Timestamp: 2026-03-14T14:20:11.496Z"}
+{"level":"info","message":"[AUTH-MIDDLEWARE] Node version: v25.7.0"}
+{"level":"info","message":"[AUTH-MIDDLEWARE] Environment: production"}
+{"level":"info","message":""}
+{"level":"info","message":"╔══════════════════════════════════════════════════════════╗"}
+{"level":"info","message":"║        🔐 ConFuse Auth Middleware (TypeScript)           ║"}
+{"level":"info","message":"╠══════════════════════════════════════════════════════════╣"}
+{"level":"info","message":"║  🚀 Server running on http://localhost:3010            ║"}
+{"level":"info","message":"║  📊 Environment: production                           ║"}
+{"level":"info","message":"║  🌐 Auth0 Domain: dev-pmspwseo1uaudyoi.jp.auth0.com   ║"}
+{"level":"info","message":"╚══════════════════════════════════════════════════════════╝"}
+{"level":"info","message":""}
+{"level":"info","message":"[gRPC] Server running on port 50058"}
+{"level":"info","message":"[RATE-LIMIT] Redis connected"}
