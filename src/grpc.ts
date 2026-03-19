@@ -4,7 +4,7 @@ import * as protoLoader from '@grpc/proto-loader';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import { config } from './config.js';
-import { verifyAuth0Token, extractRoles } from './services/auth0.js';
+import { verifyAuth0Token, extractRoles } from './auth.js';
 import { findById } from './services/user.js';
 import { logger } from './utils/logger.js';
 

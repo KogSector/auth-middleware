@@ -17,12 +17,6 @@ interface CachedToken {
     expiresAt: number;
 }
 
-// Rate limit entry structure
-interface RateLimitEntry {
-    count: number;
-    windowStart: number;
-}
-
 // Cache statistics
 interface CacheStats {
     hits: number;
@@ -38,11 +32,9 @@ interface CacheEntry<T> {
 
 class TokenCacheService {
     private tokenCache: Map<string, CacheEntry<CachedToken>> = new Map();
-    private rateLimitCache: Map<string, RateLimitEntry> = new Map();
     private isInitialized = false;
     private stats: CacheStats = { hits: 0, misses: 0, errors: 0 };
     private readonly TOKEN_PREFIX = 'auth:token:';
-    private readonly RATE_LIMIT_PREFIX = 'auth:rate:';
     private cleanupInterval: ReturnType<typeof setInterval> | null = null;
 
     /**
@@ -166,52 +158,6 @@ class TokenCacheService {
         }
     }
 
-    /**
-     * Check rate limit for user/IP
-     */
-    async checkRateLimit(key: string, maxRequests: number, windowSeconds: number): Promise<{ allowed: boolean; remaining: number; retryAfter: number }> {
-        if (!this.isAvailable()) {
-            return { allowed: true, remaining: maxRequests, retryAfter: 0 };
-        }
-
-        try {
-            const now = Math.floor(Date.now() / 1000);
-            const windowStart = Math.floor(now / windowSeconds) * windowSeconds;
-            const rateLimitKey = `${this.RATE_LIMIT_PREFIX}${key}:${windowStart}`;
-
-            const entry = this.rateLimitCache.get(rateLimitKey);
-            let count: number;
-
-            if (entry && entry.windowStart === windowStart) {
-                entry.count++;
-                count = entry.count;
-            } else {
-                // Clean up old window entries for this key prefix
-                const keyPrefix = `${this.RATE_LIMIT_PREFIX}${key}:`;
-                for (const k of this.rateLimitCache.keys()) {
-                    if (k.startsWith(keyPrefix) && k !== rateLimitKey) {
-                        this.rateLimitCache.delete(k);
-                    }
-                }
-                count = 1;
-                this.rateLimitCache.set(rateLimitKey, { count, windowStart });
-            }
-
-            const allowed = count <= maxRequests;
-            const remaining = Math.max(0, maxRequests - count);
-            const retryAfter = allowed ? 0 : windowSeconds - (now % windowSeconds);
-
-            if (!allowed) {
-                logger.warn(`[TOKEN-CACHE] Rate limit exceeded for key: ${key} (${count}/${maxRequests})`);
-            }
-
-            return { allowed, remaining, retryAfter };
-        } catch (error) {
-            this.stats.errors++;
-            logger.error('[TOKEN-CACHE] Error checking rate limit:', error);
-            return { allowed: true, remaining: maxRequests, retryAfter: 0 };
-        }
-    }
 
     /**
      * Get cache statistics
@@ -257,7 +203,6 @@ class TokenCacheService {
             clearInterval(this.cleanupInterval);
         }
         this.tokenCache.clear();
-        this.rateLimitCache.clear();
         logger.info('[TOKEN-CACHE] In-memory cache cleared');
     }
 }
@@ -265,13 +210,3 @@ class TokenCacheService {
 // Singleton instance
 export const tokenCache = new TokenCacheService();
 
-// Hash function for tokens (using simple hash for now)
-export function hashToken(token: string): string {
-    let hash = 0;
-    for (let i = 0; i < token.length; i++) {
-        const char = token.charCodeAt(i);
-        hash = ((hash << 5) - hash) + char;
-        hash = hash & hash;
-    }
-    return Math.abs(hash).toString(16);
-}

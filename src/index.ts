@@ -8,7 +8,7 @@ import express, { type Request, type Response, type NextFunction } from 'express
 import cors from 'cors';
 import helmet from 'helmet';
 import { config } from './config.js';
-import authRoutes from './routes/auth.js';
+import authRouter from './auth.js';
 import healthRoutes from './routes/health.js';
 import { logger } from './utils/logger.js';
 import { rateLimitMiddleware, initRedis } from './middleware/rate-limiter.js';
@@ -71,13 +71,13 @@ app.use((req: Request, res: Response, next: NextFunction) => {
 
 // Routes
 app.use('/', healthRoutes);
-app.use('/api/auth', authRoutes);
+app.use('/api/auth', authRouter);
 
 // Legacy route compatibility
-app.use('/auth', authRoutes);
+app.use('/auth', authRouter);
 
 // Internal routes (service-to-service)
-app.use('/internal', authRoutes);
+app.use('/internal', authRouter);
 
 // User Stats (Dashboard mock data)
 app.get('/api/users/stats', (req: Request, res: Response) => {
