@@ -382,8 +382,11 @@ export function requireRoles(...requiredRoles: string[]) {
         }
 
         const userRoles = req.user.roles || [];
+        // DSA: O(1) Set.has() replaces O(n) Array.includes() for role membership checks.
+        // Converts user roles to a Set once, then each required role check is O(1).
+        const roleSet = new Set(userRoles);
         const hasRole = requiredRoles.length === 0 ||
-            requiredRoles.some(role => userRoles.includes(role));
+            requiredRoles.some(role => roleSet.has(role));
 
         if (!hasRole) {
             res.status(403).json({

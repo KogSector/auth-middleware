@@ -95,14 +95,39 @@ async function checkRateLimit(
     }
 
     // In-memory fallback
-    const timestamps = memoryStore.get(key) || [];
-    const filtered = timestamps.filter(t => t > windowStart);
-    filtered.push(now);
-    memoryStore.set(key, filtered);
-    const allowed = filtered.length <= maxRequests;
+    // DSA: Timestamps are kept sorted (monotonically increasing).
+    // Use binary search to find the cutoff point instead of O(n) Array.filter()
+    // which allocated a new array on every request.
+    let timestamps = memoryStore.get(key);
+    if (!timestamps) {
+        timestamps = [];
+        memoryStore.set(key, timestamps);
+    }
+
+    // Binary search for the first timestamp > windowStart
+    let lo = 0;
+    let hi = timestamps.length;
+    while (lo < hi) {
+        const mid = (lo + hi) >>> 1;
+        if (timestamps[mid] <= windowStart) {
+            lo = mid + 1;
+        } else {
+            hi = mid;
+        }
+    }
+
+    // Remove expired entries in-place (O(1) amortized via splice from front)
+    if (lo > 0) {
+        timestamps.splice(0, lo);
+    }
+
+    // Append current timestamp (maintains sorted order)
+    timestamps.push(now);
+
+    const allowed = timestamps.length <= maxRequests;
     return {
         allowed,
-        remaining: Math.max(0, maxRequests - filtered.length),
+        remaining: Math.max(0, maxRequests - timestamps.length),
         limit: maxRequests,
         retryAfterSecs: allowed ? 0 : Math.ceil(windowMs / 1000),
         resetAt,
