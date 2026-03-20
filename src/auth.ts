@@ -792,7 +792,15 @@ authRouter.post('/connections/sync', requireAuth as any, async (req: Authenticat
 
         const mgmtClient = Auth0ManagementClient.getInstance();
         // Step 1: Query Auth0 for all users that share the exact same email
-        const auth0Users = await mgmtClient.getUsersByEmail(user.email);
+        let auth0Users: any[] = [];
+        if (user.email && user.email.trim() !== '') {
+            auth0Users = await mgmtClient.getUsersByEmail(user.email);
+        } else {
+            const profile = await mgmtClient.getUserProfile(claims.sub);
+            if (profile) {
+                auth0Users = [profile];
+            }
+        }
 
         const results = [];
 
@@ -803,9 +811,8 @@ authRouter.post('/connections/sync', requireAuth as any, async (req: Authenticat
             for (const identity of identities) {
                 const providerName = identity.provider.replace('-oauth2', '');
 
-                if (!identity.access_token) {
-                    continue;
-                }
+                // Identity provider access tokens may not be present depending on Auth0 scope settings
+                // We still want to record the connection so the UI updates and other parts can fallback to ENV tokens
 
                 // Upsert the account record
                 const result = await prisma.account.upsert({
@@ -819,8 +826,8 @@ authRouter.post('/connections/sync', requireAuth as any, async (req: Authenticat
                         type: 'oauth',
                         provider: providerName,
                         providerAccountId: String(identity.user_id),
-                        access_token: identity.access_token,
-                        refresh_token: identity.refresh_token,
+                        access_token: identity.access_token || null,
+                        refresh_token: identity.refresh_token || null,
                         scope: identity.scope || '',
                         expires_at: identity.expires_at ? Math.floor(identity.expires_at * 1000) : null,
                     },
@@ -829,8 +836,8 @@ authRouter.post('/connections/sync', requireAuth as any, async (req: Authenticat
                         type: 'oauth',
                         provider: providerName,
                         providerAccountId: String(identity.user_id),
-                        access_token: identity.access_token,
-                        refresh_token: identity.refresh_token,
+                        access_token: identity.access_token || null,
+                        refresh_token: identity.refresh_token || null,
                         scope: identity.scope || '',
                         expires_at: identity.expires_at ? Math.floor(identity.expires_at * 1000) : null,
                     },
