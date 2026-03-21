@@ -572,7 +572,7 @@ authRouter.get('/me', requireAuth as any, async (req: AuthenticatedRequest, res:
  */
 authRouter.post('/verify', async (req: Request, res: Response) => {
     try {
-        const { token } = req.body;
+        const token = req.body?.token || extractBearerToken(req as any);
 
         if (!token) {
             res.status(400).json({
