@@ -1,0 +1,167 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: auth-middleware
+  namespace: confuse
+  labels:
+    app: auth-middleware
+    service: auth
+    version: v1.0.0
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: auth-middleware
+  template:
+    metadata:
+      labels:
+        app: auth-middleware
+        service: auth
+        version: v1.0.0
+    spec:
+      containers:
+      - name: auth-middleware
+        image: confuseimgr.azurecr.io/auth-middleware:v1.0.0
+        ports:
+        - containerPort: 3010
+          name: http
+        - containerPort: 50058
+          name: grpc
+        env:
+        # Service Configuration
+        - name: PORT
+          valueFrom:
+            configMapKeyRef:
+              name: auth-middleware-config
+              key: PORT
+        - name: HOST
+          valueFrom:
+            configMapKeyRef:
+              name: auth-middleware-config
+              key: HOST
+        - name: ENVIRONMENT
+          valueFrom:
+            configMapKeyRef:
+              name: auth-middleware-config
+              key: ENVIRONMENT
+        
+        # Shared Infrastructure
+        - name: POSTGRES_HOST
+          valueFrom:
+            configMapKeyRef:
+              name: shared-infrastructure
+              key: postgres_host
+        - name: POSTGRES_PORT
+          valueFrom:
+            configMapKeyRef:
+              name: shared-infrastructure
+              key: postgres_port
+        - name: POSTGRES_DATABASE
+          valueFrom:
+            configMapKeyRef:
+              name: shared-infrastructure
+              key: postgres_database
+        - name: POSTGRES_USER
+          valueFrom:
+            secretKeyRef:
+              name: shared-infrastructure-secrets
+              key: postgres_user
+        - name: POSTGRES_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: shared-infrastructure-secrets
+              key: postgres_password
+        - name: POSTGRES_SSL_MODE
+          valueFrom:
+            configMapKeyRef:
+              name: shared-infrastructure
+              key: postgres_ssl_mode
+        
+        # Redis Configuration
+        - name: REDIS_HOST
+          valueFrom:
+            configMapKeyRef:
+              name: shared-infrastructure
+              key: redis_host
+        - name: REDIS_PORT
+          valueFrom:
+            configMapKeyRef:
+              name: shared-infrastructure
+              key: redis_port
+        - name: REDIS_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: shared-infrastructure-secrets
+              key: redis_password
+        
+        # Service Secrets
+        - name: JWT_SECRET
+          valueFrom:
+            secretKeyRef:
+              name: shared-infrastructure-secrets
+              key: jwt_secret
+        - name: ENCRYPTION_KEY
+          valueFrom:
+            secretKeyRef:
+              name: shared-infrastructure-secrets
+              key: encryption_key
+        
+        # Auth0 Configuration (from service secrets)
+        - name: AUTH0_CLIENT_ID
+          valueFrom:
+            secretKeyRef:
+              name: auth-middleware-secrets
+              key: AUTH0_CLIENT_ID
+        - name: AUTH0_CLIENT_SECRET
+          valueFrom:
+            secretKeyRef:
+              name: auth-middleware-secrets
+              key: AUTH0_CLIENT_SECRET
+        - name: AUTH0_DOMAIN
+          valueFrom:
+            configMapKeyRef:
+              name: auth-middleware-config
+              key: AUTH0_DOMAIN
+        
+        resources:
+          requests:
+            memory: "256Mi"
+            cpu: "250m"
+          limits:
+            memory: "512Mi"
+            cpu: "500m"
+        
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: 3010
+          initialDelaySeconds: 30
+          periodSeconds: 10
+          timeoutSeconds: 5
+          failureThreshold: 3
+        
+        readinessProbe:
+          httpGet:
+            path: /ready
+            port: 3010
+          initialDelaySeconds: 5
+          periodSeconds: 5
+          timeoutSeconds: 3
+          failureThreshold: 3
+        
+        volumeMounts:
+        - name: downloads
+          mountPath: /app/downloads
+      
+      volumes:
+      - name: downloads
+        persistentVolumeClaim:
+          claimName: confuse-downloads-pvc
+      
+      imagePullSecrets:
+      - name: acr-secret
+      
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000
+        fsGroup: 1000
