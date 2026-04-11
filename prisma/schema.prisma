@@ -204,7 +204,7 @@ model KnowledgeBase {
   
   // External references (for multi-db architecture)
   milvusCollection String?  @map("milvus_collection")
-  neo4jNamespace   String?  @map("neo4j_namespace")
+  falkordbNamespace String?  @map("falkordb_namespace")
   mongoCollection  String?  @map("mongo_collection")
   
   // Configuration
