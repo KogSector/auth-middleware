@@ -14,6 +14,12 @@ import { logger } from './utils/logger.js';
 import { rateLimitMiddleware, initRedis } from './middleware/rate-limiter.js';
 import { securityHeadersMiddleware } from './middleware/security-headers.js';
 import { startGrpcServer } from './grpc.js';
+import { initEventProducer } from './infra/events/producer.js';
+
+// Initialize Kafka Producer
+initEventProducer().catch(err => {
+    logger.error('[AUTH-MIDDLEWARE] Failed to initialize Kafka producer', { error: err.message });
+});
 
 // Initialize Redis for rate limiting
 initRedis();

@@ -38,6 +38,11 @@ interface Config {
     frontendUrl: string;
     grpcPort: number;
     internalApiKey: string;
+    kafka?: {
+        bootstrapServers: string;
+        clientId: string;
+        eventsTopic: string;
+    };
 }
 
 function requireEnv(name: string): string {
@@ -103,4 +108,11 @@ export const config: Config = {
 
     // Internal API Key
     internalApiKey: process.env.INTERNAL_API_KEY || 'default-internal-key',
+    
+    // Kafka
+    kafka: {
+        bootstrapServers: process.env.KAFKA_BOOTSTRAP_SERVERS || 'localhost:9092',
+        clientId: process.env.KAFKA_CLIENT_ID || 'auth-middleware',
+        eventsTopic: process.env.KAFKA_AUTH_EVENTS_TOPIC || 'auth.events',
+    },
 };
