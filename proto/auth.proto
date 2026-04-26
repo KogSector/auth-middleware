@@ -6,9 +6,26 @@ package confuse.auth.v1;
 service Auth {
   // Token validation
   rpc ValidateToken(ValidateTokenRequest) returns (ValidateTokenResponse);
+  rpc ValidateApiKey(ValidateApiKeyRequest) returns (ValidateApiKeyResponse);
+  rpc GetInternalToken(GetInternalTokenRequest) returns (GetInternalTokenResponse);
   
   // User information
   rpc GetUser(GetUserRequest) returns (User);
+}
+
+message GetInternalTokenRequest {
+  string api_key = 1;
+  string user_id = 2;
+  string provider = 3;
+}
+
+message GetInternalTokenResponse {
+  bool success = 1;
+  string provider = 2;
+  string access_token = 3;
+  string refresh_token = 4;
+  string token_type = 5;
+  string error = 6;
 }
 
 // Messages
@@ -21,6 +38,20 @@ message ValidateTokenResponse {
   optional string user_id = 2;
   repeated string roles = 3;
   optional string error = 4;
+  string email = 5;
+}
+
+message ValidateApiKeyRequest {
+  string api_key = 1;
+}
+
+message ValidateApiKeyResponse {
+  bool valid = 1;
+  string user_id = 2;
+  string email = 3;
+  repeated string roles = 4;
+  string key_id = 5;
+  string error = 6;
 }
 
 message GetUserRequest {

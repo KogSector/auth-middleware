@@ -12,10 +12,11 @@ let producer: EventProducer | null = null;
  */
 export async function initEventProducer(): Promise<EventProducer | null> {
     try {
-        const kafkaConfig = new KafkaConfig({
-            bootstrapServers: config.kafka?.bootstrapServers || 'localhost:9092',
-            clientId: config.kafka?.clientId || 'auth-middleware',
-        });
+        const kafkaConfig = KafkaConfig.fromEnv();
+        // Override clientId if specified in auth-middleware config, otherwise uses KAFKA_CLIENT_ID env var
+        if (config.kafka?.clientId) {
+            (kafkaConfig as any).clientId = config.kafka.clientId;
+        }
 
         producer = new EventProducer(kafkaConfig);
         await producer.connect();
