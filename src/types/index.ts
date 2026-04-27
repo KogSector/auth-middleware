@@ -58,23 +58,8 @@ export interface Auth0UserInfo {
     picture: string | null;
 }
 
-// ============================================================================
-// Session Types
-// ============================================================================
+// Session types removed as session management is handled by Auth0
 
-export interface Session {
-    id: string;
-    userId: string;
-    refreshToken: string;
-    expiresAt: Date;
-    createdAt: Date;
-    revokedAt: Date | null;
-    userAgent: string | null;
-    ipAddress: string | null;
-    user?: User;
-}
-
-// ============================================================================
 // Feature Toggle Types
 // ============================================================================
 
@@ -137,51 +122,6 @@ export interface CacheStats {
     capacity: number;
 }
 
-export interface CacheEntry<T> {
-    payload: T;
-    timestamp: number;
-}
-
-// ============================================================================
-// Workspace Types
-// ============================================================================
-
-export interface Workspace {
-    id: string;
-    name: string;
-    slug: string;
-    description: string | null;
-    ownerId: string;
-    isDefault: boolean;
-    settings: Record<string, unknown>;
-    createdAt: Date;
-    updatedAt: Date;
-}
-
-export interface WorkspaceMember {
-    id: string;
-    workspaceId: string;
-    userId: string;
-    role: 'owner' | 'admin' | 'member' | 'viewer';
-    joinedAt: Date;
-}
-
-export interface KnowledgeBase {
-    id: string;
-    workspaceId: string;
-    name: string;
-    description: string | null;
-    type: 'general' | 'code' | 'docs' | 'chat';
-    status: 'active' | 'archived' | 'processing';
-    embeddingModel: string;
-    milvusCollection: string | null;
-    neo4jNamespace: string | null;
-    mongoCollection: string | null;
-    documentCount: number;
-    embeddingCount: number;
-    createdAt: Date;
-    updatedAt: Date;
-}
 
 // ============================================================================
 // User Context (for propagation across services)

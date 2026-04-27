@@ -62,8 +62,6 @@ export async function findOrCreateByAuth0(input: CreateUserInput): Promise<User>
         },
     });
 
-
-
     // Create default workspace for new user
     try {
         const workspaceName = name ? `${name}'s Workspace` : 'My Workspace';

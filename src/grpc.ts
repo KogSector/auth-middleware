@@ -7,9 +7,7 @@ import { config } from './config.js';
 import { verifyAuth0Token, extractRoles } from './auth.js';
 import { findById } from './services/user.js';
 import { logger } from './utils/logger.js';
-import { PrismaClient } from '@prisma/client';
-
-const prisma = new PrismaClient();
+import { prisma } from './db/client.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -148,7 +146,7 @@ const getUser = async (call: any, callback: any) => {
             user_id: user.id,
             email: user.email,
             roles: user.roles,
-            metadata: {}, // Populate if needed
+            metadata: {}, 
         });
     } catch (error: any) {
         logger.error(`[gRPC] GetUser failed: ${error.message}`);
@@ -158,6 +156,7 @@ const getUser = async (call: any, callback: any) => {
         });
     }
 };
+
 
 /**
  * Start gRPC Server

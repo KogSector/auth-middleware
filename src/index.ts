@@ -47,7 +47,6 @@ app.use(cors({
     ],
 }));
 
-
 // Body parsing
 app.use(express.json());
 
@@ -75,15 +74,11 @@ app.use((req: Request, res: Response, next: NextFunction) => {
     next();
 });
 
-// Routes
+// Health & Metrics
 app.use('/', healthRoutes);
+
+// Authentication API
 app.use('/api/auth', authRouter);
-
-// Legacy route compatibility
-app.use('/auth', authRouter);
-
-// Internal routes (service-to-service)
-app.use('/internal', authRouter);
 
 // User Stats (Dashboard mock data)
 app.get('/api/users/stats', (req: Request, res: Response) => {

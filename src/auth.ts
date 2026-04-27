@@ -10,9 +10,7 @@ import type { Response as ExpressResponse, NextFunction } from 'express';
 import { createRemoteJWKSet, jwtVerify, type JWTPayload } from 'jose';
 import { Redis } from 'ioredis';
 import { randomBytes, createHash } from 'crypto';
-
-// Resolve TypeScript error for native fetch in Node 18+
-declare const fetch: any;
+import { logger } from './utils/logger.js';
 
 import { config } from './config.js';
 import { tokenCache } from './services/cache.js';
@@ -43,7 +41,7 @@ export class OAuthStateService {
         this.redis = new Redis(redisUrl);
 
         this.redis.on('error', (err: Error) => {
-            console.error('Redis connection error:', err);
+            logger.error('[OAUTH-STATE] Redis connection error', { error: err.message });
         });
     }
 
@@ -451,7 +449,7 @@ authRouter.post('/login', async (req: Request, res: Response) => {
             claims = await verifyAuth0Token(auth0Token);
         } catch (error) {
             const message = error instanceof Error ? error.message : 'Unknown error';
-            console.warn('Auth0 token verification failed:', message);
+            logger.warn('[AUTH-LOGIN] Auth0 token verification failed', { message });
             res.status(401).json({
                 error: 'Invalid Auth0 token',
                 message,
@@ -500,7 +498,7 @@ authRouter.post('/login', async (req: Request, res: Response) => {
                     }
                 }
             } catch (mgmtError) {
-                console.warn('Failed to fetch full Auth0 profile:', mgmtError);
+                logger.warn('[AUTH-LOGIN] Failed to fetch full Auth0 profile', { error: mgmtError });
             }
 
             // Extract provider from identities
@@ -510,7 +508,7 @@ authRouter.post('/login', async (req: Request, res: Response) => {
             }
 
         } catch (error) {
-            console.warn('Failed to fetch user info from Auth0:', error);
+            logger.warn('[AUTH-LOGIN] Failed to fetch user info from Auth0', { error });
         }
 
         // Sync user to database
@@ -529,7 +527,7 @@ authRouter.post('/login', async (req: Request, res: Response) => {
         res.json(response);
 
     } catch (error) {
-        console.error('Login error:', error);
+        logger.error('[AUTH-LOGIN] Login error', { error });
         res.status(500).json({
             error: 'Internal server error',
             message: error instanceof Error ? error.message : 'Unknown error',
@@ -559,7 +557,7 @@ authRouter.get('/me', requireAuth as any, async (req: AuthenticatedRequest, res:
         });
 
     } catch (error) {
-        console.error('Get user error:', error);
+        logger.error('[AUTH-ME] Get user error', { error });
         res.status(500).json({
             error: 'Internal server error',
         });
@@ -639,7 +637,7 @@ authRouter.get('/connections', requireAuth as any, async (req: AuthenticatedRequ
         });
 
     } catch (error) {
-        console.error('Connections fetch error:', error);
+        logger.error('[AUTH-CONNECTIONS] Connections fetch error', { error });
         res.status(500).json({
             success: false,
             error: 'Internal server error',
@@ -686,7 +684,7 @@ authRouter.get('/oauth/:provider/start', async (req: Request, res: Response) => 
         });
 
     } catch (error) {
-        console.error('OAuth start error:', error);
+        logger.error('[AUTH-OAUTH-START] OAuth start error', { error });
         res.status(500).json({ error: 'Internal server error' });
     }
 });
@@ -734,7 +732,7 @@ authRouter.get('/oauth/:provider/callback', async (req: Request, res: Response) 
         });
 
     } catch (error) {
-        console.error('OAuth callback error:', error);
+        logger.error('[AUTH-OAUTH-CALLBACK] OAuth callback error', { error });
         res.status(500).json({ error: 'Internal server error' });
     }
 });
@@ -768,7 +766,7 @@ authRouter.delete('/connections/:provider', requireAuth as any, async (req: Auth
         });
 
     } catch (error) {
-        console.error('Disconnect error:', error);
+        logger.error('[AUTH-CONNECTIONS-DISCONNECT] Disconnect error', { error });
         res.status(500).json({
             success: false,
             error: 'Internal server error',
