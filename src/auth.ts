@@ -511,12 +511,11 @@ authRouter.post('/login', async (req: Request, res: Response) => {
             logger.warn('[AUTH-LOGIN] Failed to fetch user info from Auth0', { error });
         }
 
-        // Sync user to database
         const user = await findOrCreateByAuth0({
             auth0Sub: claims.sub,
-            email: claims.email || '',
-            name: claims.name,
-            picture: claims.picture,
+            email: userInfo.email || claims.email || '',
+            name: userInfo.name || claims.name,
+            picture: userInfo.picture || claims.picture,
             roles: extractRoles(claims),
         });
 
