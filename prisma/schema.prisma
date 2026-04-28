@@ -23,7 +23,9 @@ model User {
   preferences          UserPreference?
   workspaceMemberships WorkspaceMember[]
   ownedWorkspaces      Workspace[]       @relation("WorkspaceOwner")
-
+  onboardingCompleted  Boolean           @default(false) @map("onboarding_completed")
+  userIntent           String?           @map("user_intent")
+  dashboardPreset      String?           @map("dashboard_preset")
   @@map("users")
 }
 
