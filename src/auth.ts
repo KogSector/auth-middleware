@@ -536,7 +536,7 @@ authRouter.post('/login', async (req: Request, res: Response) => {
 
 /**
  * GET /auth/me
- * Get current authenticated user (with bypass support)
+ * Get current authenticated user
  */
 authRouter.get('/me', requireAuth as any, async (req: AuthenticatedRequest, res: Response) => {
     try {
