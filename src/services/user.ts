@@ -134,5 +134,8 @@ export function toProfile(user: User): UserProfile {
         picture: user.picture,
         roles: user.roles,
         createdAt: user.createdAt.toISOString(),
+        onboardingCompleted: user.onboardingCompleted,
+        userIntent: user.userIntent,
+        dashboardPreset: user.dashboardPreset,
     };
 }

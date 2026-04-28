@@ -18,6 +18,9 @@ export interface User {
     createdAt: Date;
     updatedAt: Date;
     lastLoginAt: Date | null;
+    onboardingCompleted: boolean;
+    userIntent: string | null;
+    dashboardPreset: string | null;
 }
 
 export interface UserProfile {
@@ -27,6 +30,9 @@ export interface UserProfile {
     picture: string | null;
     roles: string[];
     createdAt: string;
+    onboardingCompleted: boolean;
+    userIntent: string | null;
+    dashboardPreset: string | null;
 }
 
 export interface CreateUserInput {
