@@ -43,6 +43,7 @@ interface Config {
         clientId: string;
         eventsTopic: string;
     };
+    redisUrl: string;
 }
 
 function requireEnv(name: string): string {
@@ -115,4 +116,5 @@ export const config: Config = {
         clientId: process.env.KAFKA_CLIENT_ID || 'auth-middleware',
         eventsTopic: process.env.KAFKA_AUTH_EVENTS_TOPIC || 'auth.events',
     },
+    redisUrl: process.env.REDIS_URL || 'redis://localhost:6379',
 };

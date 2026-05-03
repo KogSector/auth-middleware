@@ -7,6 +7,7 @@
 
 import { createClient, type RedisClientType } from 'redis';
 import type { Request, Response, NextFunction } from 'express';
+import { config } from '../config.js';
 import { logger } from '../utils/logger.js';
 
 // ── Redis Client ──
@@ -15,9 +16,17 @@ let redisClient: RedisClientType | null = null;
 let redisAvailable = false;
 
 export async function initRedis(): Promise<void> {
-    const redisUrl = process.env.REDIS_URL || 'redis://localhost:6379';
     try {
-        redisClient = createClient({ url: redisUrl });
+        redisClient = createClient({
+            url: config.redisUrl,
+            socket: {
+                keepAlive: true,
+                reconnectStrategy: (retries) => {
+                    const delay = Math.min(retries * 50, 1000);
+                    return delay;
+                }
+            }
+        });
         redisClient.on('error', (err) => {
             if (redisAvailable) {
                 logger.warn(`[RATE-LIMIT] Redis error, falling back to in-memory: ${err.message}`);

@@ -37,11 +37,20 @@ export class OAuthStateService {
     private readonly TTL = 600; // 10 minutes
 
     constructor() {
-        const redisUrl = process.env.REDIS_URL || 'redis://localhost:6379';
-        this.redis = new Redis(redisUrl);
+        this.redis = new Redis(config.redisUrl, {
+            keepAlive: 10000,
+            retryStrategy: (times) => {
+                const delay = Math.min(times * 50, 2000);
+                return delay;
+            }
+        });
 
         this.redis.on('error', (err: Error) => {
             logger.error('[OAUTH-STATE] Redis connection error', { error: err.message });
+        });
+
+        this.redis.on('connect', () => {
+            logger.info('[OAUTH-STATE] Redis connected');
         });
     }
 
