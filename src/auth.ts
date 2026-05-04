@@ -15,7 +15,7 @@ import { logger } from './utils/logger.js';
 import { config } from './config.js';
 import { tokenCache } from './services/cache.js';
 import { findOrCreateByAuth0, findByAuth0Sub, toProfile } from './services/user.js';
-import prisma from './db/client.js';
+import prisma from './infra/db/client.js';
 import type { AuthenticatedRequest, AuthExchangeResponse, TokenVerifyResponse, Auth0Claims, Auth0UserInfo, CacheStats } from './types/index.js';
 
 // ============================================================================

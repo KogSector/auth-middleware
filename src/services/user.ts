@@ -5,7 +5,7 @@
  */
 
 import { User, UserProfile, CreateUserInput } from '../types/index.js';
-import prisma from '../db/client.js';
+import prisma from '../infra/db/client.js';
 
 /**
  * Find or create user by Auth0 subject

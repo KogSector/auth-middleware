@@ -8,7 +8,7 @@ import { config } from './config.js';
 import { verifyAuth0Token, extractRoles } from './auth.js';
 import { findById } from './services/user.js';
 import { logger } from './utils/logger.js';
-import { prisma } from './db/client.js';
+import { prisma } from './infra/db/client.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
