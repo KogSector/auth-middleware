@@ -1,11 +1,37 @@
-import { Router, type Response } from 'express';
-import { requireAuth } from '../auth.js';
+/**
+ * Consolidated routes for auth-middleware
+ * Merges health and onboarding routes to reduce file count
+ */
+
+import { Router, type Request, type Response } from 'express';
 import prisma from '../db/client.js';
+import { requireAuth } from '../auth.js';
 import type { AuthenticatedRequest, Auth0Claims } from '../types/index.js';
 
-const router = Router();
+// Health routes
+const healthRoutes = Router();
+healthRoutes.get('/health', async (_req: Request, res: Response) => {
+    let dbStatus = 'unknown';
 
-router.get('/onboarding', requireAuth as any, async (req: AuthenticatedRequest, res: Response) => {
+    try {
+        await prisma.$queryRaw`SELECT 1`;
+        dbStatus = 'connected';
+    } catch {
+        dbStatus = 'disconnected';
+    }
+
+    res.json({
+        status: 'healthy',
+        service: 'auth-middleware',
+        database: dbStatus,
+        timestamp: new Date().toISOString(),
+    });
+});
+
+// Onboarding routes
+const onboardingRoutes = Router();
+
+onboardingRoutes.get('/onboarding', requireAuth as any, async (req: AuthenticatedRequest, res: Response) => {
     try {
         const claims = req.user as Auth0Claims;
         const user = await prisma.user.findUnique({
@@ -31,7 +57,7 @@ router.get('/onboarding', requireAuth as any, async (req: AuthenticatedRequest, 
     }
 });
 
-router.post('/onboarding', requireAuth as any, async (req: AuthenticatedRequest, res: Response) => {
+onboardingRoutes.post('/onboarding', requireAuth as any, async (req: AuthenticatedRequest, res: Response) => {
     try {
         const claims = req.user as Auth0Claims;
         const { userIntent, dashboardPreset, onboardingCompleted } = req.body;
@@ -59,4 +85,4 @@ router.post('/onboarding', requireAuth as any, async (req: AuthenticatedRequest,
     }
 });
 
-export default router;
+export { healthRoutes, onboardingRoutes };

@@ -8,7 +8,8 @@
         "dev": "tsx watch src/index.ts",
         "build": "tsc",
         "start": "node dist/index.js",
-        "lint": "eslint src",
+        "lint": "eslint \"src/**/*.{ts,js}\"",
+        "lint:fix": "eslint \"src/**/*.{ts,js}\" --fix",
         "test": "vitest",
         "prisma:generate": "prisma generate",
         "prisma:push": "prisma db push",
@@ -18,17 +19,17 @@
         "@grpc/grpc-js": "^1.14.3",
         "@grpc/proto-loader": "^0.8.0",
         "@prisma/client": "^5.7.1",
+        "confuse-common": "file:../shared-middleware/typescript/confuse-common",
         "cors": "^2.8.5",
         "dotenv": "^16.3.1",
         "express": "^4.18.2",
         "helmet": "^7.1.0",
-        "redis": "^5.10.0",
-        "uuid": "^9.0.1",
-        "winston": "^3.11.0",
-        "jose": "^5.1.0",
         "ioredis": "^5.3.0",
+        "jose": "^5.1.0",
         "kafkajs": "^2.2.4",
-        "confuse-common": "file:../shared-middleware/typescript/confuse-common"
+        "redis": "^5.10.0",
+        "uuid": "^14.0.0",
+        "winston": "^3.11.0"
     },
     "devDependencies": {
         "@types/cors": "^2.8.17",
@@ -36,11 +37,13 @@
         "@types/node": "^20.10.0",
         "@types/redis": "^4.0.10",
         "@types/uuid": "^9.0.7",
+        "@typescript-eslint/eslint-plugin": "^8.59.1",
+        "@typescript-eslint/parser": "^8.59.1",
         "eslint": "^8.56.0",
         "prisma": "^5.7.1",
         "tsx": "^4.7.0",
         "typescript": "^5.3.3",
-        "vitest": "^1.1.0"
+        "vitest": "^4.1.5"
     },
     "engines": {
         "node": ">=24.0.0"

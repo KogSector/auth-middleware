@@ -7,7 +7,7 @@
 
 import { config } from '../config.js';
 import { logger } from '../utils/logger.js';
-import BloomFilter from '../messaging/bloomFilter.js';
+import BloomFilter from '../utils/bloomFilter.js';
 
 // Token cache entry structure
 interface CachedToken {
