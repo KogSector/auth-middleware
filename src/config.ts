@@ -40,6 +40,8 @@ interface Config {
         bootstrapServers: string;
         clientId: string;
         eventsTopic: string;
+        // Optional dead-letter queue topic for failed messages
+        dlqTopic?: string;
     };
     redisUrl: string;
 }
@@ -102,6 +104,7 @@ export const config: Config = {
         bootstrapServers: process.env.KAFKA_BOOTSTRAP_SERVERS || 'localhost:9092',
         clientId: process.env.KAFKA_CLIENT_ID || 'auth-middleware',
         eventsTopic: process.env.KAFKA_AUTH_EVENTS_TOPIC || 'auth.events',
+        dlqTopic: process.env.KAFKA_DLQ_TOPIC || `${process.env.KAFKA_AUTH_EVENTS_TOPIC || 'auth.events'}.dlq`,
     },
     redisUrl: process.env.REDIS_URL || 'redis://localhost:6379',
 };
