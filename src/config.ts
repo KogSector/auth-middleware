@@ -5,8 +5,6 @@
  */
 
 import dotenv from 'dotenv';
-import * as fs from 'fs';
-import * as path from 'path';
 
 interface Auth0Config {
     domain: string;
@@ -54,18 +52,7 @@ function requireEnv(name: string): string {
     return value;
 }
 
-function loadKeyFile(envVar: string): string | null {
-    const keyPath = process.env[envVar];
-    if (!keyPath) return null;
-
-    const fullPath = path.resolve(keyPath);
-    if (!fs.existsSync(fullPath)) {
-        console.warn(`Key file not found: ${fullPath}`);
-        return null;
-    }
-
-    return fs.readFileSync(fullPath, 'utf-8');
-}
+// Note: loading key files is not currently used; keep helper removed to avoid lint warnings.
 
 export const config: Config = {
     // Server

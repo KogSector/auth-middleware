@@ -11,7 +11,7 @@ import prisma from '../db/client.js';
  * Find or create user by Auth0 subject
  */
 export async function findOrCreateByAuth0(input: CreateUserInput): Promise<User> {
-    const { auth0Sub, email, name, picture, roles } = input;
+    const { auth0Sub, email, name, picture } = input;
 
     // Try to find existing user by auth0Sub
     let user = await prisma.user.findUnique({

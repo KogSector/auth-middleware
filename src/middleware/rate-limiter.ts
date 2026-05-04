@@ -168,7 +168,7 @@ function getTierForPath(path: string): RateLimitTier {
 
 function getClientKey(req: Request): string {
     // Prefer authenticated user ID, fall back to IP
-    const user = (req as any).user;
+    const user = (req as unknown as import('../types/index.js').AuthenticatedRequest).user;
     if (user?.sub) return `user:${user.sub}`;
     if (user?.id) return `user:${user.id}`;
     const forwarded = req.headers['x-forwarded-for'];

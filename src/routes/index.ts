@@ -31,7 +31,7 @@ healthRoutes.get('/health', async (_req: Request, res: Response) => {
 // Onboarding routes
 const onboardingRoutes = Router();
 
-onboardingRoutes.get('/onboarding', requireAuth as any, async (req: AuthenticatedRequest, res: Response) => {
+onboardingRoutes.get('/onboarding', requireAuth, async (req: AuthenticatedRequest, res: Response) => {
     try {
         const claims = req.user as Auth0Claims;
         const user = await prisma.user.findUnique({
@@ -52,12 +52,12 @@ onboardingRoutes.get('/onboarding', requireAuth as any, async (req: Authenticate
             success: true,
             data: user,
         });
-    } catch (error) {
+    } catch {
         res.status(500).json({ error: 'Internal server error' });
     }
 });
 
-onboardingRoutes.post('/onboarding', requireAuth as any, async (req: AuthenticatedRequest, res: Response) => {
+onboardingRoutes.post('/onboarding', requireAuth, async (req: AuthenticatedRequest, res: Response) => {
     try {
         const claims = req.user as Auth0Claims;
         const { userIntent, dashboardPreset, onboardingCompleted } = req.body;
@@ -80,7 +80,7 @@ onboardingRoutes.post('/onboarding', requireAuth as any, async (req: Authenticat
             success: true,
             data: user,
         });
-    } catch (error) {
+    } catch {
         res.status(500).json({ error: 'Internal server error' });
     }
 });

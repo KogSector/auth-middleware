@@ -7,7 +7,7 @@
 
 import { Router, type Request, type Response } from 'express';
 import type { Response as ExpressResponse, NextFunction } from 'express';
-import { createRemoteJWKSet, jwtVerify, type JWTPayload } from 'jose';
+import { createRemoteJWKSet, jwtVerify } from 'jose';
 import { Redis } from 'ioredis';
 import { randomBytes, createHash } from 'crypto';
 import { logger } from './utils/logger.js';
@@ -32,7 +32,7 @@ export interface OAuthState {
 }
 
 export class OAuthStateService {
-    private redis: any;
+    private redis: Redis;
     private readonly PREFIX = 'oauth:state:';
     private readonly TTL = 600; // 10 minutes
 
@@ -173,16 +173,19 @@ export async function verifyAuth0Token(token: string): Promise<Auth0Claims> {
             audience: config.auth0.audience,
         });
 
+        // Normalize payload to Auth0Claims for downstream use
+        const claims = payload as Auth0Claims;
+
         // Cache the validated token
         await tokenCache.setToken(tokenHash, {
-            userId: payload.sub || '',
-            email: (payload as any).email || '',
-            roles: extractRoles(payload as Auth0Claims),
+            userId: claims.sub || '',
+            email: claims.email || '',
+            roles: extractRoles(claims),
             validatedAt: Date.now(),
             expiresAt: Date.now() + (config.tokenCacheTtlSeconds * 1000),
         });
 
-        return payload as Auth0Claims;
+        return claims;
     } catch (error) {
         throw new Error(`Invalid token: ${error instanceof Error ? error.message : 'Unknown error'}`);
     }
@@ -204,13 +207,9 @@ export function extractUserInfo(claims: Auth0Claims): Auth0UserInfo {
  * Extract roles from Auth0 claims
  */
 export function extractRoles(claims: Auth0Claims): string[] {
-    // Check for roles in different possible locations
-    const roles = claims.roles || 
-                 claims['https://confuse.dev/roles'] || 
-                 (claims as any)['http://confuse.dev/roles'] || 
-                 [];
-    
-    return Array.isArray(roles) ? roles : [];
+    const asRecord = claims as unknown as Record<string, unknown>;
+    const rolesValue = asRecord['roles'] ?? asRecord['https://confuse.dev/roles'] ?? asRecord['http://confuse.dev/roles'] ?? [];
+    return Array.isArray(rolesValue) ? (rolesValue as string[]) : [];
 }
 
 /**
@@ -263,7 +262,7 @@ export class Auth0ManagementClient {
         }
     }
 
-    async getUserProfile(userId: string): Promise<any> {
+    async getUserProfile(userId: string): Promise<Record<string, unknown>> {
         const token = await this.getAccessToken();
         
         const response = await fetch(`https://${config.auth0.domain}/api/v2/users/${userId}`, {
@@ -277,7 +276,7 @@ export class Auth0ManagementClient {
         return response.json();
     }
 
-    async getUsersByEmail(email: string): Promise<any[]> {
+    async getUsersByEmail(email: string): Promise<Record<string, unknown>[]> {
         const token = await this.getAccessToken();
         
         const response = await fetch(`https://${config.auth0.domain}/api/v2/users-by-email?email=${encodeURIComponent(email)}`, {
@@ -313,7 +312,7 @@ export function getTokenCacheStats(): CacheStats {
 /**
  * Extract bearer token from Authorization header
  */
-export function extractBearerToken(req: AuthenticatedRequest): string | null {
+export function extractBearerToken(req: Request): string | null {
     const authHeader = req.headers.authorization;
     if (!authHeader || !authHeader.startsWith('Bearer ')) {
         return null;
@@ -325,7 +324,7 @@ export function extractBearerToken(req: AuthenticatedRequest): string | null {
  * Require Auth0 Access Token authentication
  */
 export async function requireAuth(
-    req: AuthenticatedRequest,
+    req: Request,
     res: ExpressResponse,
     next: NextFunction
 ): Promise<void> {
@@ -342,8 +341,9 @@ export async function requireAuth(
     try {
         const claims = await verifyAuth0Token(token);
         // Augment claims with roles
-        (claims as any).roles = extractRoles(claims);
-        req.user = claims;
+        const claimsTyped = claims as Auth0Claims;
+        claimsTyped.roles = extractRoles(claimsTyped);
+        (req as AuthenticatedRequest).user = claimsTyped;
         next();
     } catch (error) {
         const message = error instanceof Error ? error.message : 'Invalid token';
@@ -358,7 +358,7 @@ export async function requireAuth(
  * Optional authentication - doesn't fail if no token
  */
 export async function optionalAuth(
-    req: AuthenticatedRequest,
+    req: Request,
     res: ExpressResponse,
     next: NextFunction
 ): Promise<void> {
@@ -367,7 +367,7 @@ export async function optionalAuth(
     if (token) {
         try {
             const claims = await verifyAuth0Token(token);
-            req.user = claims;
+            (req as AuthenticatedRequest).user = claims;
         } catch {
             // Ignore errors for optional auth
         }
@@ -380,15 +380,16 @@ export async function optionalAuth(
  * Require specific roles
  */
 export function requireRoles(...requiredRoles: string[]) {
-    return (req: AuthenticatedRequest, res: ExpressResponse, next: NextFunction): void => {
-        if (!req.user) {
+    return (req: Request, res: ExpressResponse, next: NextFunction): void => {
+        const reqUser = (req as AuthenticatedRequest).user;
+        if (!reqUser) {
             res.status(401).json({
                 error: 'Authentication required',
             });
             return;
         }
 
-        const userRoles = req.user.roles || [];
+        const userRoles = reqUser.roles || [];
         // DSA: O(1) Set.has() replaces O(n) Array.includes() for role membership checks.
         // Converts user roles to a Set once, then each required role check is O(1).
         const roleSet = new Set(userRoles);
@@ -443,7 +444,7 @@ export const oAuthStateService = new OAuthStateService();
 authRouter.post('/login', async (req: Request, res: Response) => {
     try {
         // Extract Auth0 token using middleware function
-        const auth0Token = extractBearerToken(req as any);
+        const auth0Token = extractBearerToken(req);
         if (!auth0Token) {
             res.status(401).json({
                 error: 'Missing or invalid Authorization header',
@@ -467,8 +468,7 @@ authRouter.post('/login', async (req: Request, res: Response) => {
         }
 
         // Fetch user profile from Auth0 /userinfo endpoint
-        let userInfo: any = {};
-        let providerName: string | null = null;
+        let userInfo: Record<string, unknown> = {};
         try {
             const userInfoRes = await fetch(`https://${config.auth0.domain}/userinfo`, {
                 headers: { 'Authorization': `Bearer ${auth0Token}` }
@@ -482,27 +482,31 @@ authRouter.post('/login', async (req: Request, res: Response) => {
                 const mgmtClient = Auth0ManagementClient.getInstance();
                 const fullProfile = await mgmtClient.getUserProfile(claims.sub);
 
-                userInfo = { ...userInfo, ...fullProfile };
+                userInfo = { ...userInfo, ...(fullProfile as Record<string, unknown>) };
 
                 // Directly query Google or Microsoft APIs for the full name if access token is available
-                const identities = fullProfile.identities || [];
+                const identities: Array<Record<string, unknown>> = Array.isArray((fullProfile as Record<string, unknown>).identities)
+                    ? ((fullProfile as Record<string, unknown>).identities as Array<Record<string, unknown>>)
+                    : [];
                 for (const identity of identities) {
-                    if (identity.provider === 'google-oauth2' && identity.access_token) {
+                    const provider = String(identity['provider'] ?? '');
+                    const accessToken = typeof identity['access_token'] === 'string' ? identity['access_token'] as string : '';
+                    if (provider === 'google-oauth2' && accessToken) {
                         const googleRes = await fetch('https://www.googleapis.com/oauth2/v3/userinfo', {
-                            headers: { Authorization: `Bearer ${identity.access_token}` }
+                            headers: { Authorization: `Bearer ${accessToken}` }
                         });
                         if (googleRes.ok) {
-                            const googleUser = await googleRes.json();
-                            userInfo.name = googleUser.name || userInfo.name;
-                            userInfo.picture = googleUser.picture || userInfo.picture;
+                            const googleUser = await googleRes.json() as Record<string, unknown>;
+                            userInfo['name'] = (typeof googleUser['name'] === 'string' ? googleUser['name'] as string : userInfo['name']);
+                            userInfo['picture'] = (typeof googleUser['picture'] === 'string' ? googleUser['picture'] as string : userInfo['picture']);
                         }
-                    } else if (identity.provider === 'windowslive' && identity.access_token) {
+                    } else if (provider === 'windowslive' && accessToken) {
                         const msRes = await fetch('https://graph.microsoft.com/v1.0/me', {
-                            headers: { Authorization: `Bearer ${identity.access_token}` }
+                            headers: { Authorization: `Bearer ${accessToken}` }
                         });
                         if (msRes.ok) {
-                            const msUser = await msRes.json();
-                            userInfo.name = msUser.displayName || userInfo.name;
+                            const msUser = await msRes.json() as Record<string, unknown>;
+                            userInfo['name'] = (typeof msUser['displayName'] === 'string' ? msUser['displayName'] as string : userInfo['name']);
                         }
                     }
                 }
@@ -510,21 +514,21 @@ authRouter.post('/login', async (req: Request, res: Response) => {
                 logger.warn('[AUTH-LOGIN] Failed to fetch full Auth0 profile', { error: mgmtError });
             }
 
-            // Extract provider from identities
-            const identities = userInfo.identities || [];
-            if (identities.length > 0) {
-                providerName = identities[0].provider;
-            }
+            // (provider extraction removed — not used)
 
         } catch (error) {
             logger.warn('[AUTH-LOGIN] Failed to fetch user info from Auth0', { error });
         }
 
+        const email = typeof userInfo['email'] === 'string' ? userInfo['email'] as string : (typeof claims.email === 'string' ? claims.email : '');
+        const name = typeof userInfo['name'] === 'string' ? userInfo['name'] as string : (typeof claims.name === 'string' ? claims.name : undefined);
+        const picture = typeof userInfo['picture'] === 'string' ? userInfo['picture'] as string : (typeof claims.picture === 'string' ? claims.picture : undefined);
+
         const user = await findOrCreateByAuth0({
             auth0Sub: claims.sub,
-            email: userInfo.email || claims.email || '',
-            name: userInfo.name || claims.name,
-            picture: userInfo.picture || claims.picture,
+            email,
+            name,
+            picture,
             roles: extractRoles(claims),
         });
 
@@ -547,7 +551,7 @@ authRouter.post('/login', async (req: Request, res: Response) => {
  * GET /auth/me
  * Get current authenticated user
  */
-authRouter.get('/me', requireAuth as any, async (req: AuthenticatedRequest, res: Response) => {
+authRouter.get('/me', requireAuth, async (req: AuthenticatedRequest, res: Response) => {
     try {
         // Normal flow - req.user is Auth0Claims
         const claims = req.user as Auth0Claims;
@@ -578,7 +582,7 @@ authRouter.get('/me', requireAuth as any, async (req: AuthenticatedRequest, res:
  */
 authRouter.post('/verify', async (req: Request, res: Response) => {
     try {
-        const token = req.body?.token || extractBearerToken(req as any);
+        const token = req.body?.token || extractBearerToken(req);
 
         if (!token) {
             res.status(400).json({
@@ -591,7 +595,7 @@ authRouter.post('/verify', async (req: Request, res: Response) => {
 
         const response: TokenVerifyResponse = {
             valid: true,
-            claims: claims as any, // Cast to any to satisfy type
+            claims: claims,
         };
 
         res.json(response);
@@ -610,7 +614,7 @@ authRouter.post('/verify', async (req: Request, res: Response) => {
  * GET /auth/connections
  * Get user's social connections
  */
-authRouter.get('/connections', requireAuth as any, async (req: AuthenticatedRequest, res: Response) => {
+authRouter.get('/connections', requireAuth, async (req: AuthenticatedRequest, res: Response) => {
     try {
         const claims = req.user as Auth0Claims;
         const user = await findByAuth0Sub(claims.sub);
@@ -704,7 +708,7 @@ authRouter.get('/oauth/:provider/start', async (req: Request, res: Response) => 
 authRouter.get('/oauth/:provider/callback', async (req: Request, res: Response) => {
     try {
         const { provider } = req.params;
-        const { code, state, error } = req.query;
+        const { state, error } = req.query;
 
         if (error) {
             res.status(400).json({ error: typeof error === 'string' ? error : 'OAuth error' });
@@ -749,7 +753,7 @@ authRouter.get('/oauth/:provider/callback', async (req: Request, res: Response) 
  * DELETE /auth/connections/:provider
  * Disconnect a social provider
  */
-authRouter.delete('/connections/:provider', requireAuth as any, async (req: AuthenticatedRequest, res: Response) => {
+authRouter.delete('/connections/:provider', requireAuth, async (req: AuthenticatedRequest, res: Response) => {
     try {
         const { provider } = req.params;
 
@@ -786,7 +790,7 @@ authRouter.delete('/connections/:provider', requireAuth as any, async (req: Auth
  * POST /auth/connections/sync
  * Sync user identities from Auth0 Management API
  */
-authRouter.post('/connections/sync', requireAuth as any, async (req: AuthenticatedRequest, res: Response) => {
+authRouter.post('/connections/sync', requireAuth, async (req: AuthenticatedRequest, res: Response) => {
     try {
         const claims = req.user as Auth0Claims;
         const user = await findByAuth0Sub(claims.sub);
@@ -798,7 +802,7 @@ authRouter.post('/connections/sync', requireAuth as any, async (req: Authenticat
 
         const mgmtClient = Auth0ManagementClient.getInstance();
         // Step 1: Query Auth0 for all users that share the exact same email
-        let auth0Users: any[] = [];
+        let auth0Users: Array<Record<string, unknown>> = [];
         if (user.email && user.email.trim() !== '') {
             auth0Users = await mgmtClient.getUsersByEmail(user.email);
         } else {
@@ -812,40 +816,48 @@ authRouter.post('/connections/sync', requireAuth as any, async (req: Authenticat
 
         // Step 2: Iterate over every matching user profile, and every identity within those profiles
         for (const auth0User of auth0Users) {
-            const identities = auth0User.identities || [];
+            const identities: Array<Record<string, unknown>> = Array.isArray((auth0User as Record<string, unknown>).identities)
+                ? ((auth0User as Record<string, unknown>).identities as Array<Record<string, unknown>>)
+                : [];
 
             for (const identity of identities) {
-                const providerName = identity.provider.replace('-oauth2', '');
+                const _providerName = String(identity['provider'] ?? '').replace('-oauth2', '');
 
                 // Identity provider access tokens may not be present depending on Auth0 scope settings
                 // We still want to record the connection so the UI updates and other parts can fallback to ENV tokens
 
                 // Upsert the account record
-                const result = await prisma.account.upsert({
+                    const providerAccountId = typeof identity['user_id'] === 'string' ? identity['user_id'] as string : String(identity['user_id']);
+                    const accessToken = typeof identity['access_token'] === 'string' ? identity['access_token'] as string : null;
+                    const refreshToken = typeof identity['refresh_token'] === 'string' ? identity['refresh_token'] as string : null;
+                    const scopeVal = typeof identity['scope'] === 'string' ? identity['scope'] as string : '';
+                    const expiresAt = typeof identity['expires_at'] === 'number' ? Math.floor((identity['expires_at'] as number) * 1000) : (typeof identity['expires_at'] === 'string' && !isNaN(Number(identity['expires_at'])) ? Math.floor(Number(identity['expires_at']) * 1000) : null);
+
+                    const result = await prisma.account.upsert({
                     where: {
                         provider_providerAccountId: {
-                            provider: providerName,
-                            providerAccountId: String(identity.user_id),
+                                provider: _providerName,
+                            providerAccountId: providerAccountId,
                         }
                     },
                     update: {
                         type: 'oauth',
-                        provider: providerName,
-                        providerAccountId: String(identity.user_id),
-                        access_token: identity.access_token || null,
-                        refresh_token: identity.refresh_token || null,
-                        scope: identity.scope || '',
-                        expires_at: identity.expires_at ? Math.floor(identity.expires_at * 1000) : null,
+                            provider: _providerName,
+                        providerAccountId: providerAccountId,
+                        access_token: accessToken,
+                        refresh_token: refreshToken,
+                        scope: scopeVal,
+                        expires_at: expiresAt,
                     },
                     create: {
                         userId: user.id,
                         type: 'oauth',
-                        provider: providerName,
-                        providerAccountId: String(identity.user_id),
-                        access_token: identity.access_token || null,
-                        refresh_token: identity.refresh_token || null,
-                        scope: identity.scope || '',
-                        expires_at: identity.expires_at ? Math.floor(identity.expires_at * 1000) : null,
+                        provider: _providerName,
+                        providerAccountId: providerAccountId,
+                        access_token: accessToken,
+                        refresh_token: refreshToken,
+                        scope: scopeVal,
+                        expires_at: expiresAt,
                     },
                 });
                 results.push(result);
@@ -875,7 +887,7 @@ authRouter.post('/connections/sync', requireAuth as any, async (req: Authenticat
  * GET /auth/connections/:provider/token
  * Fetch the decrypted access token for a connected provider
  */
-authRouter.get('/connections/:provider/token', requireAuth as any, async (req: AuthenticatedRequest, res: Response) => {
+authRouter.get('/connections/:provider/token', requireAuth, async (req: AuthenticatedRequest, res: Response) => {
     try {
         const { provider } = req.params;
         const claims = req.user as Auth0Claims;

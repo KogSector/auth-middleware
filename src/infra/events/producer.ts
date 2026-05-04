@@ -13,17 +13,17 @@ let producer: EventProducer | null = null;
 export async function initEventProducer(): Promise<EventProducer | null> {
     try {
         const kafkaConfig = KafkaConfig.fromEnv();
-        // Override clientId if specified in auth-middleware config, otherwise uses KAFKA_CLIENT_ID env var
-        if (config.kafka?.clientId) {
-            (kafkaConfig as any).clientId = config.kafka.clientId;
-        }
+        // If a clientId override is provided, create an override config
+        const producerConfig = config.kafka?.clientId
+            ? Object.assign({}, kafkaConfig, { clientId: config.kafka.clientId }) as unknown as KafkaConfig
+            : kafkaConfig;
 
-        producer = new EventProducer(kafkaConfig);
+        producer = new EventProducer(producerConfig);
         await producer.connect();
         
         logger.info('[AUTH-EVENTS] Kafka event producer initialized', {
-            bootstrapServers: kafkaConfig.bootstrapServers,
-            clientId: kafkaConfig.clientId
+            bootstrapServers: producerConfig.bootstrapServers,
+            clientId: producerConfig.clientId
         });
         
         return producer;

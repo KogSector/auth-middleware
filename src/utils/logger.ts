@@ -30,7 +30,7 @@ const format = winston.format.combine(
     winston.format.timestamp({ format: 'YYYY-MM-DD HH:mm:ss:ms' }),
     winston.format.colorize({ all: true }),
     winston.format.printf(
-        (info: any) => `${info.timestamp} ${info.level}: ${info.message}`
+        (info: Record<string, unknown>) => `${String(info['timestamp'])} ${String(info['level'])}: ${String(info['message'])}`
     )
 );
 
