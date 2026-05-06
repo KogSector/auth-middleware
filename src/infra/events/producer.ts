@@ -13,22 +13,19 @@ let producer: EventProducer | null = null;
 export async function initEventProducer(): Promise<EventProducer | null> {
     try {
         const kafkaConfig = KafkaConfig.fromEnv();
-        // If a clientId override is provided, create an override config
-        const producerConfig = config.kafka?.clientId
-            ? Object.assign({}, kafkaConfig, { clientId: config.kafka.clientId }) as unknown as KafkaConfig
-            : kafkaConfig;
-
-        producer = new EventProducer(producerConfig);
+        producer = new EventProducer(kafkaConfig);
         await producer.connect();
         
         logger.info('[AUTH-EVENTS] Kafka event producer initialized', {
-            bootstrapServers: producerConfig.bootstrapServers,
-            clientId: producerConfig.clientId
+            bootstrapServers: kafkaConfig.bootstrapServers,
+            clientId: kafkaConfig.clientId
         });
         
         return producer;
     } catch (error) {
-        logger.error('[AUTH-EVENTS] Failed to initialize Kafka event producer', { error });
+        console.log('[AUTH-EVENTS] Catch block reached');
+        console.log('[AUTH-EVENTS] Error:', JSON.stringify(error, Object.getOwnPropertyNames(error)));
+        logger.error('[AUTH-EVENTS] Failed to initialize Kafka event producer');
         return null;
     }
 }
