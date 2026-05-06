@@ -24,8 +24,11 @@ export async function initRedis(): Promise<void> {
                 reconnectStrategy: (retries) => {
                     const delay = Math.min(retries * 50, 1000);
                     return delay;
-                }
-            }
+                },
+                connectTimeout: 10000
+            },
+            database: 0,
+            disableOfflineQueue: false
         });
         redisClient.on('error', (err) => {
             if (redisAvailable) {
