@@ -658,6 +658,113 @@ authRouter.get('/connections', requireAuth, async (req: AuthenticatedRequest, re
 });
 
 /**
+ * GET /auth/oauth/url
+ * Generate OAuth URL for providers
+ */
+authRouter.get('/oauth/url', async (req: Request, res: Response) => {
+    try {
+        const { provider } = req.query;
+        if (provider === 'github') {
+            const clientId = 'Ov23liL3MQoIiV6bgA5w';
+            const redirectUri = `${config.frontendUrl}/api/auth/oauth/callback`;
+            const state = randomBytes(16).toString('hex');
+            res.json({ url: `https://github.com/login/oauth/authorize?client_id=${clientId}&redirect_uri=${encodeURIComponent(redirectUri)}&state=${state}&scope=repo` });
+        } else {
+            res.status(400).json({ error: 'Unsupported provider' });
+        }
+    } catch (error) {
+        logger.error('[AUTH-OAUTH-URL] Error', { error });
+        res.status(500).json({ error: 'Internal server error' });
+    }
+});
+
+/**
+ * POST /auth/oauth/exchange
+ * Exchange code for token and save connection
+ */
+authRouter.post('/oauth/exchange', requireAuth, async (req: AuthenticatedRequest, res: Response) => {
+    try {
+        const claims = req.user as Auth0Claims;
+        const user = await findByAuth0Sub(claims.sub);
+        
+        if (!user) {
+            sendUserNotFound(res);
+            return;
+        }
+
+        const { provider, code } = req.body;
+        
+        if (provider === 'github') {
+            const clientId = 'Ov23liL3MQoIiV6bgA5w';
+            const clientSecret = '7e1dd12025ee7c7c43e296192cf16975587729e9';
+            
+            const tokenRes = await fetch('https://github.com/login/oauth/access_token', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Accept': 'application/json'
+                },
+                body: JSON.stringify({
+                    client_id: clientId,
+                    client_secret: clientSecret,
+                    code
+                })
+            });
+            
+            const tokenData = await tokenRes.json();
+            
+            if (tokenData.error) {
+                logger.error('[AUTH-OAUTH-EXCHANGE] GitHub token error', { error: tokenData.error });
+                res.status(400).json({ error: tokenData.error_description || tokenData.error });
+                return;
+            }
+            
+            const accessToken = tokenData.access_token;
+            
+            // Get user info to get providerAccountId
+            const userRes = await fetch('https://api.github.com/user', {
+                headers: {
+                    'Authorization': `Bearer ${accessToken}`,
+                    'Accept': 'application/vnd.github.v3+json'
+                }
+            });
+            
+            const userData = await userRes.json();
+            const providerAccountId = String(userData.id);
+            
+            await prisma.account.upsert({
+                where: {
+                    provider_providerAccountId: {
+                        provider: 'github',
+                        providerAccountId
+                    }
+                },
+                update: {
+                    type: 'oauth',
+                    access_token: accessToken,
+                    scope: tokenData.scope || 'repo',
+                },
+                create: {
+                    userId: user.id,
+                    type: 'oauth',
+                    provider: 'github',
+                    providerAccountId,
+                    access_token: accessToken,
+                    scope: tokenData.scope || 'repo',
+                }
+            });
+            
+            res.json({ success: true, message: 'GitHub connected successfully' });
+        } else {
+            res.status(400).json({ error: 'Unsupported provider' });
+        }
+    } catch (error) {
+        logger.error('[AUTH-OAUTH-EXCHANGE] Error', { error });
+        res.status(500).json({ error: 'Internal server error' });
+    }
+});
+
+/**
  * GET /auth/oauth/:provider/start
  * Securely start OAuth flow with State/PKCE
  */
@@ -800,6 +907,9 @@ authRouter.post('/connections/sync', requireAuth, async (req: AuthenticatedReque
             return;
         }
 
+        const targetProvider = req.body.targetProvider as string | undefined;
+        logger.info('[AUTH-CONNECTIONS] Starting sync', { email: user.email, targetProvider });
+
         const mgmtClient = Auth0ManagementClient.getInstance();
         // Step 1: Query Auth0 for all users that share the exact same email
         let auth0Users: Array<Record<string, unknown>> = [];
@@ -822,6 +932,16 @@ authRouter.post('/connections/sync', requireAuth, async (req: AuthenticatedReque
 
             for (const identity of identities) {
                 const _providerName = String(identity['provider'] ?? '').replace('-oauth2', '');
+
+                if (targetProvider) {
+                    const normalizedTarget = targetProvider.replace('-oauth2', '').replace('google_drive', 'google').replace('windowslive', 'windowslive');
+                    if (_providerName !== normalizedTarget) {
+                        logger.info('[AUTH-CONNECTIONS] Skipping provider during sync', { provider: _providerName, targetProvider });
+                        continue;
+                    }
+                }
+
+                logger.info('[AUTH-CONNECTIONS] Syncing identity', { provider: _providerName, targetProvider });
 
                 // Identity provider access tokens may not be present depending on Auth0 scope settings
                 // We still want to record the connection so the UI updates and other parts can fallback to ENV tokens
