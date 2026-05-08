@@ -73,7 +73,7 @@ export const config: Config = {
         managementDomain: process.env.AUTH0_MANAGEMENT_DOMAIN || process.env.AUTH0_DOMAIN,
     },
 
-    // ConHub JWT
+    // ConFuse JWT
 
 
     // Token cache TTL

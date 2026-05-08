@@ -1,7 +1,7 @@
 {
-    "name": "conhub-auth-middleware",
+    "name": "confuse-auth-middleware",
     "version": "1.0.0",
-    "description": "ConHub Auth Middleware - Auth0-based authentication for all microservices",
+    "description": "ConFuse Auth Middleware - Auth0-based authentication for all microservices",
     "type": "module",
     "main": "dist/index.js",
     "scripts": {
