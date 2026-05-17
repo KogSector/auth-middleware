@@ -43,7 +43,9 @@ app.use(cors({
         'X-Span-Id',
         'X-Trace-Id',
         'X-Request-Id',
-        'X-Correlation-Id'
+        'X-Correlation-Id',
+        'x-user-id',
+        'X-User-Id'
     ],
 }));
 
