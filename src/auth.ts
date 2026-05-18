@@ -328,6 +328,29 @@ export async function requireAuth(
     res: ExpressResponse,
     next: NextFunction
 ): Promise<void> {
+    // Check if authBypass is enabled
+    try {
+        const bypassResponse = await fetch(`${config.featureToggleServiceUrl}/api/toggles/auth-bypass/user`);
+        if (bypassResponse.ok) {
+            const result = await bypassResponse.json();
+            if (result.success && result.data) {
+                const demoUser = result.data;
+                logger.info('[AUTH-MIDDLEWARE] requireAuth: Bypassing authentication using demo user', { user: demoUser });
+                
+                const claims: Auth0Claims = {
+                    sub: demoUser.id || 'user-rishabh-001',
+                    email: demoUser.email || 'rishabh.babi@gmail.com',
+                    name: demoUser.name || 'Rishabh Babi',
+                    roles: demoUser.roles || ['user', 'developer', 'admin'],
+                };
+                (req as AuthenticatedRequest).user = claims;
+                return next();
+            }
+        }
+    } catch (err) {
+        logger.debug('[AUTH-MIDDLEWARE] requireAuth: Feature toggle service bypass check failed or unavailable', { error: err instanceof Error ? err.message : String(err) });
+    }
+
     const token = extractBearerToken(req);
 
     if (!token) {
@@ -362,6 +385,29 @@ export async function optionalAuth(
     res: ExpressResponse,
     next: NextFunction
 ): Promise<void> {
+    // Check if authBypass is enabled
+    try {
+        const bypassResponse = await fetch(`${config.featureToggleServiceUrl}/api/toggles/auth-bypass/user`);
+        if (bypassResponse.ok) {
+            const result = await bypassResponse.json();
+            if (result.success && result.data) {
+                const demoUser = result.data;
+                logger.info('[AUTH-MIDDLEWARE] optionalAuth: Bypassing authentication using demo user', { user: demoUser });
+                
+                const claims: Auth0Claims = {
+                    sub: demoUser.id || 'user-rishabh-001',
+                    email: demoUser.email || 'rishabh.babi@gmail.com',
+                    name: demoUser.name || 'Rishabh Babi',
+                    roles: demoUser.roles || ['user', 'developer', 'admin'],
+                };
+                (req as AuthenticatedRequest).user = claims;
+                return next();
+            }
+        }
+    } catch (err) {
+        logger.debug('[AUTH-MIDDLEWARE] optionalAuth: Feature toggle service bypass check failed or unavailable', { error: err instanceof Error ? err.message : String(err) });
+    }
+
     const token = extractBearerToken(req);
 
     if (token) {
@@ -443,6 +489,34 @@ export const oAuthStateService = new OAuthStateService();
  */
 authRouter.post('/login', async (req: Request, res: Response) => {
     try {
+        // Check if authBypass is active
+        try {
+            const bypassResponse = await fetch(`${config.featureToggleServiceUrl}/api/toggles/auth-bypass/user`);
+            if (bypassResponse.ok) {
+                const result = await bypassResponse.json();
+                if (result.success && result.data) {
+                    const demoUser = result.data;
+                    logger.info('[AUTH-LOGIN] Bypassing login using demo user', { user: demoUser });
+                    
+                    // Return the mocked profile for the demo user
+                    return res.json({
+                        user: {
+                            id: demoUser.id || 'user-rishabh-001',
+                            auth0Sub: demoUser.id || 'user-rishabh-001',
+                            email: demoUser.email || 'rishabh.babi@gmail.com',
+                            name: demoUser.name || 'Rishabh Babi',
+                            picture: '',
+                            roles: demoUser.roles || ['user', 'developer', 'admin'],
+                            createdAt: new Date().toISOString(),
+                            updatedAt: new Date().toISOString()
+                        }
+                    });
+                }
+            }
+        } catch (err) {
+            logger.debug('[AUTH-LOGIN] Feature toggle bypass check failed', { error: err instanceof Error ? err.message : String(err) });
+        }
+
         // Extract Auth0 token using middleware function
         const auth0Token = extractBearerToken(req);
         if (!auth0Token) {
@@ -555,6 +629,23 @@ authRouter.get('/me', requireAuth, async (req: AuthenticatedRequest, res: Respon
     try {
         // Normal flow - req.user is Auth0Claims
         const claims = req.user as Auth0Claims;
+        
+        // If claims has our demo user ID or name, mock the DB check!
+        if (claims.sub === 'user-rishabh-001' || claims.sub === 'demo-user-id' || claims.sub.startsWith('user-rishabh-')) {
+            return res.json({
+                user: {
+                    id: claims.sub,
+                    auth0Sub: claims.sub,
+                    email: claims.email || 'rishabh.babi@gmail.com',
+                    name: claims.name || 'Rishabh Babi',
+                    picture: '',
+                    roles: claims.roles || ['user', 'developer', 'admin'],
+                    createdAt: new Date().toISOString(),
+                    updatedAt: new Date().toISOString()
+                }
+            });
+        }
+
         const user = await findByAuth0Sub(claims.sub);
 
         if (!user) {
@@ -582,6 +673,30 @@ authRouter.get('/me', requireAuth, async (req: AuthenticatedRequest, res: Respon
  */
 authRouter.post('/verify', async (req: Request, res: Response) => {
     try {
+        // Check if authBypass is active
+        try {
+            const bypassResponse = await fetch(`${config.featureToggleServiceUrl}/api/toggles/auth-bypass/user`);
+            if (bypassResponse.ok) {
+                const result = await bypassResponse.json();
+                if (result.success && result.data) {
+                    const demoUser = result.data;
+                    logger.info('[AUTH-VERIFY] Bypassing token verification using demo user', { user: demoUser });
+                    
+                    return res.json({
+                        valid: true,
+                        claims: {
+                            sub: demoUser.id || 'user-rishabh-001',
+                            email: demoUser.email || 'rishabh.babi@gmail.com',
+                            name: demoUser.name || 'Rishabh Babi',
+                            roles: demoUser.roles || ['user', 'developer', 'admin']
+                        }
+                    });
+                }
+            }
+        } catch (err) {
+            logger.debug('[AUTH-VERIFY] Feature toggle bypass check failed', { error: err instanceof Error ? err.message : String(err) });
+        }
+
         const token = req.body?.token || extractBearerToken(req);
 
         if (!token) {
