@@ -338,7 +338,7 @@ export async function requireAuth(
                 logger.info('[AUTH-MIDDLEWARE] requireAuth: Bypassing authentication using demo user', { user: demoUser });
                 
                 const claims: Auth0Claims = {
-                    sub: demoUser.id || 'user-rishabh-001',
+                    sub: demoUser.id || '00000000-0000-0000-0000-000000000001',
                     email: demoUser.email || 'rishabh.babi@gmail.com',
                     name: demoUser.name || 'Rishabh Babi',
                     roles: demoUser.roles || ['user', 'developer', 'admin'],
@@ -395,7 +395,7 @@ export async function optionalAuth(
                 logger.info('[AUTH-MIDDLEWARE] optionalAuth: Bypassing authentication using demo user', { user: demoUser });
                 
                 const claims: Auth0Claims = {
-                    sub: demoUser.id || 'user-rishabh-001',
+                    sub: demoUser.id || '00000000-0000-0000-0000-000000000001',
                     email: demoUser.email || 'rishabh.babi@gmail.com',
                     name: demoUser.name || 'Rishabh Babi',
                     roles: demoUser.roles || ['user', 'developer', 'admin'],
@@ -501,8 +501,8 @@ authRouter.post('/login', async (req: Request, res: Response) => {
                     // Return the mocked profile for the demo user
                     return res.json({
                         user: {
-                            id: demoUser.id || 'user-rishabh-001',
-                            auth0Sub: demoUser.id || 'user-rishabh-001',
+                            id: demoUser.id || '00000000-0000-0000-0000-000000000001',
+                            auth0Sub: demoUser.id || '00000000-0000-0000-0000-000000000001',
                             email: demoUser.email || 'rishabh.babi@gmail.com',
                             name: demoUser.name || 'Rishabh Babi',
                             picture: '',
@@ -631,7 +631,7 @@ authRouter.get('/me', requireAuth, async (req: AuthenticatedRequest, res: Respon
         const claims = req.user as Auth0Claims;
         
         // If claims has our demo user ID or name, mock the DB check!
-        if (claims.sub === 'user-rishabh-001' || claims.sub === 'demo-user-id' || claims.sub.startsWith('user-rishabh-')) {
+        if (claims.sub === 'user-rishabh-001' || claims.sub === 'demo-user-id' || claims.sub.startsWith('user-rishabh-') || claims.sub === '00000000-0000-0000-0000-000000000001') {
             return res.json({
                 user: {
                     id: claims.sub,
@@ -685,7 +685,7 @@ authRouter.post('/verify', async (req: Request, res: Response) => {
                     return res.json({
                         valid: true,
                         claims: {
-                            sub: demoUser.id || 'user-rishabh-001',
+                            sub: demoUser.id || '00000000-0000-0000-0000-000000000001',
                             email: demoUser.email || 'rishabh.babi@gmail.com',
                             name: demoUser.name || 'Rishabh Babi',
                             roles: demoUser.roles || ['user', 'developer', 'admin']
