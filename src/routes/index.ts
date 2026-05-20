@@ -52,8 +52,9 @@ onboardingRoutes.get('/onboarding', requireAuth, async (req: AuthenticatedReques
             success: true,
             data: user,
         });
-    } catch {
-        res.status(500).json({ error: 'Internal server error' });
+    } catch (error) {
+        console.error('[ONBOARDING] GET error:', error);
+        res.status(500).json({ error: 'Internal server error', details: error instanceof Error ? error.message : String(error) });
     }
 });
 
@@ -80,8 +81,9 @@ onboardingRoutes.post('/onboarding', requireAuth, async (req: AuthenticatedReque
             success: true,
             data: user,
         });
-    } catch {
-        res.status(500).json({ error: 'Internal server error' });
+    } catch (error) {
+        console.error('[ONBOARDING] POST error:', error);
+        res.status(500).json({ error: 'Internal server error', details: error instanceof Error ? error.message : String(error) });
     }
 });
 
