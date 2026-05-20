@@ -114,6 +114,16 @@ export async function findByAuth0Sub(auth0Sub: string): Promise<User | null> {
 }
 
 /**
+ * Find user by email
+ */
+export async function findByEmail(email: string): Promise<User | null> {
+    const user = await prisma.user.findUnique({
+        where: { email },
+    });
+    return user as User | null;
+}
+
+/**
  * Update last login timestamp
  */
 export async function updateLastLogin(userId: string): Promise<void> {

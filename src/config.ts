@@ -61,7 +61,7 @@ export const config: Config = {
     port: parseInt(process.env.PORT || '3010', 10),
     nodeEnv: process.env.NODE_ENV || 'development',
 
-    // Auth0 (optional when AUTH_BYPASS_ENABLED=true)
+    // Auth0 (required — OAuth via Google or Microsoft)
     auth0: {
         domain: process.env.AUTH0_DOMAIN || 'dev-placeholder.auth0.com',
         issuer: process.env.AUTH0_ISSUER || 'https://dev-placeholder.auth0.com/',

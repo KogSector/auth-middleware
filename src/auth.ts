@@ -14,7 +14,7 @@ import { logger } from './utils/logger.js';
 
 import { config } from './config.js';
 import { tokenCache } from './services/cache.js';
-import { findOrCreateByAuth0, findByAuth0Sub, toProfile } from './services/user.js';
+import { findOrCreateByAuth0, findByAuth0Sub, findByEmail, toProfile } from './services/user.js';
 import prisma from './infra/db/client.js';
 import type { AuthenticatedRequest, AuthExchangeResponse, TokenVerifyResponse, Auth0Claims, Auth0UserInfo, CacheStats } from './types/index.js';
 
@@ -125,6 +125,17 @@ export class OAuthStateService {
 
 // JWKS remote key set (cached by jose library)
 let jwks: ReturnType<typeof createRemoteJWKSet> | null = null;
+
+/**
+ * Helper to resolve a user from Auth0 claims by checking auth0Sub first, then email.
+ */
+async function resolveUserFromClaims(claims: Auth0Claims) {
+    let user = await findByAuth0Sub(claims.sub);
+    if (!user && claims.email) {
+        user = await findByEmail(claims.email);
+    }
+    return user;
+}
 
 /**
  * Get or create JWKS cache
@@ -321,36 +332,13 @@ export function extractBearerToken(req: Request): string | null {
 }
 
 /**
- * Require Auth0 Access Token authentication
+ * Require Auth0 Access Token authentication (OAuth only — Google / Microsoft)
  */
 export async function requireAuth(
     req: Request,
     res: ExpressResponse,
     next: NextFunction
 ): Promise<void> {
-    // Check if authBypass is enabled
-    try {
-        const bypassResponse = await fetch(`${config.featureToggleServiceUrl}/api/toggles/auth-bypass/user`);
-        if (bypassResponse.ok) {
-            const result = await bypassResponse.json();
-            if (result.success && result.data) {
-                const demoUser = result.data;
-                logger.info('[AUTH-MIDDLEWARE] requireAuth: Bypassing authentication using demo user', { user: demoUser });
-                
-                const claims: Auth0Claims = {
-                    sub: demoUser.id || '00000000-0000-0000-0000-000000000001',
-                    email: demoUser.email || 'rishabh.babi@gmail.com',
-                    name: demoUser.name || 'Rishabh Babi',
-                    roles: demoUser.roles || ['user', 'developer', 'admin'],
-                };
-                (req as AuthenticatedRequest).user = claims;
-                return next();
-            }
-        }
-    } catch (err) {
-        logger.debug('[AUTH-MIDDLEWARE] requireAuth: Feature toggle service bypass check failed or unavailable', { error: err instanceof Error ? err.message : String(err) });
-    }
-
     const token = extractBearerToken(req);
 
     if (!token) {
@@ -385,29 +373,6 @@ export async function optionalAuth(
     res: ExpressResponse,
     next: NextFunction
 ): Promise<void> {
-    // Check if authBypass is enabled
-    try {
-        const bypassResponse = await fetch(`${config.featureToggleServiceUrl}/api/toggles/auth-bypass/user`);
-        if (bypassResponse.ok) {
-            const result = await bypassResponse.json();
-            if (result.success && result.data) {
-                const demoUser = result.data;
-                logger.info('[AUTH-MIDDLEWARE] optionalAuth: Bypassing authentication using demo user', { user: demoUser });
-                
-                const claims: Auth0Claims = {
-                    sub: demoUser.id || '00000000-0000-0000-0000-000000000001',
-                    email: demoUser.email || 'rishabh.babi@gmail.com',
-                    name: demoUser.name || 'Rishabh Babi',
-                    roles: demoUser.roles || ['user', 'developer', 'admin'],
-                };
-                (req as AuthenticatedRequest).user = claims;
-                return next();
-            }
-        }
-    } catch (err) {
-        logger.debug('[AUTH-MIDDLEWARE] optionalAuth: Feature toggle service bypass check failed or unavailable', { error: err instanceof Error ? err.message : String(err) });
-    }
-
     const token = extractBearerToken(req);
 
     if (token) {
@@ -489,33 +454,6 @@ export const oAuthStateService = new OAuthStateService();
  */
 authRouter.post('/login', async (req: Request, res: Response) => {
     try {
-        // Check if authBypass is active
-        try {
-            const bypassResponse = await fetch(`${config.featureToggleServiceUrl}/api/toggles/auth-bypass/user`);
-            if (bypassResponse.ok) {
-                const result = await bypassResponse.json();
-                if (result.success && result.data) {
-                    const demoUser = result.data;
-                    logger.info('[AUTH-LOGIN] Bypassing login using demo user', { user: demoUser });
-                    
-                    // Return the mocked profile for the demo user
-                    return res.json({
-                        user: {
-                            id: demoUser.id || '00000000-0000-0000-0000-000000000001',
-                            auth0Sub: demoUser.id || '00000000-0000-0000-0000-000000000001',
-                            email: demoUser.email || 'rishabh.babi@gmail.com',
-                            name: demoUser.name || 'Rishabh Babi',
-                            picture: '',
-                            roles: demoUser.roles || ['user', 'developer', 'admin'],
-                            createdAt: new Date().toISOString(),
-                            updatedAt: new Date().toISOString()
-                        }
-                    });
-                }
-            }
-        } catch (err) {
-            logger.debug('[AUTH-LOGIN] Feature toggle bypass check failed', { error: err instanceof Error ? err.message : String(err) });
-        }
 
         // Extract Auth0 token using middleware function
         const auth0Token = extractBearerToken(req);
@@ -627,31 +565,12 @@ authRouter.post('/login', async (req: Request, res: Response) => {
  */
 authRouter.get('/me', requireAuth, async (req: AuthenticatedRequest, res: Response) => {
     try {
-        // Normal flow - req.user is Auth0Claims
         const claims = req.user as Auth0Claims;
-        
-        // If claims has our demo user ID or name, mock the DB check!
-        if (claims.sub === 'user-rishabh-001' || claims.sub === 'demo-user-id' || claims.sub.startsWith('user-rishabh-') || claims.sub === '00000000-0000-0000-0000-000000000001') {
-            return res.json({
-                user: {
-                    id: claims.sub,
-                    auth0Sub: claims.sub,
-                    email: claims.email || 'rishabh.babi@gmail.com',
-                    name: claims.name || 'Rishabh Babi',
-                    picture: '',
-                    roles: claims.roles || ['user', 'developer', 'admin'],
-                    createdAt: new Date().toISOString(),
-                    updatedAt: new Date().toISOString()
-                }
-            });
-        }
 
-        const user = await findByAuth0Sub(claims.sub);
+        const user = await resolveUserFromClaims(claims);
 
         if (!user) {
-            // Should not happen if /login was called, but if token is valid but user not in DB
-            // We could try to create here, but for now 404
-            sendUserNotFound(res, 'Please call /auth/login first to sync user');
+            sendUserNotFound(res, 'No account found for this email. Please sign up or call /auth/login first.');
             return;
         }
 
@@ -673,30 +592,6 @@ authRouter.get('/me', requireAuth, async (req: AuthenticatedRequest, res: Respon
  */
 authRouter.post('/verify', async (req: Request, res: Response) => {
     try {
-        // Check if authBypass is active
-        try {
-            const bypassResponse = await fetch(`${config.featureToggleServiceUrl}/api/toggles/auth-bypass/user`);
-            if (bypassResponse.ok) {
-                const result = await bypassResponse.json();
-                if (result.success && result.data) {
-                    const demoUser = result.data;
-                    logger.info('[AUTH-VERIFY] Bypassing token verification using demo user', { user: demoUser });
-                    
-                    return res.json({
-                        valid: true,
-                        claims: {
-                            sub: demoUser.id || '00000000-0000-0000-0000-000000000001',
-                            email: demoUser.email || 'rishabh.babi@gmail.com',
-                            name: demoUser.name || 'Rishabh Babi',
-                            roles: demoUser.roles || ['user', 'developer', 'admin']
-                        }
-                    });
-                }
-            }
-        } catch (err) {
-            logger.debug('[AUTH-VERIFY] Feature toggle bypass check failed', { error: err instanceof Error ? err.message : String(err) });
-        }
-
         const token = req.body?.token || extractBearerToken(req);
 
         if (!token) {
@@ -732,7 +627,7 @@ authRouter.post('/verify', async (req: Request, res: Response) => {
 authRouter.get('/connections', requireAuth, async (req: AuthenticatedRequest, res: Response) => {
     try {
         const claims = req.user as Auth0Claims;
-        const user = await findByAuth0Sub(claims.sub);
+        const user = await resolveUserFromClaims(claims);
 
         if (!user) {
             sendUserNotFound(res);
@@ -800,10 +695,10 @@ authRouter.get('/oauth/url', async (req: Request, res: Response) => {
 authRouter.post('/oauth/exchange', requireAuth, async (req: AuthenticatedRequest, res: Response) => {
     try {
         const claims = req.user as Auth0Claims;
-        const user = await findByAuth0Sub(claims.sub);
+        const user = await resolveUserFromClaims(claims);
         
         if (!user) {
-            sendUserNotFound(res);
+            res.status(404).json({ error: 'No user account found for this email address. Please sign in with your primary Google or Microsoft account first.' });
             return;
         }
 
@@ -980,7 +875,7 @@ authRouter.delete('/connections/:provider', requireAuth, async (req: Authenticat
         const { provider } = req.params;
 
         const claims = req.user as Auth0Claims;
-        const user = await findByAuth0Sub(claims.sub);
+        const user = await resolveUserFromClaims(claims);
 
         if (!user) {
             sendUserNotFound(res);
@@ -1015,10 +910,10 @@ authRouter.delete('/connections/:provider', requireAuth, async (req: Authenticat
 authRouter.post('/connections/sync', requireAuth, async (req: AuthenticatedRequest, res: Response) => {
     try {
         const claims = req.user as Auth0Claims;
-        const user = await findByAuth0Sub(claims.sub);
+        const user = await resolveUserFromClaims(claims);
 
         if (!user) {
-            sendUserNotFound(res);
+            res.status(404).json({ error: 'No user account found for this email address. Please sign in with your primary Google or Microsoft account first.' });
             return;
         }
 
@@ -1126,7 +1021,7 @@ authRouter.get('/connections/:provider/token', requireAuth, async (req: Authenti
     try {
         const { provider } = req.params;
         const claims = req.user as Auth0Claims;
-        const user = await findByAuth0Sub(claims.sub);
+        const user = await resolveUserFromClaims(claims);
 
         if (!user) {
             sendUserNotFound(res);

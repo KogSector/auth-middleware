@@ -66,23 +66,10 @@ export interface Auth0UserInfo {
 
 // Session types removed as session management is handled by Auth0
 
-// Feature Toggle Types
-// ============================================================================
-
-export interface DemoUser {
-    id: string;
-    sub: string; // Alias for id to match Auth0Claims
-    email: string;
-    name: string;
-    roles: string[];
-    sessionId: string;
-}
-
 export interface FeatureToggleResponse {
     success: boolean;
     data?: {
         enabled: boolean;
-        demoUser?: DemoUser;
     };
     error?: string;
 }
@@ -92,7 +79,7 @@ export interface FeatureToggleResponse {
 // ============================================================================
 
 export interface AuthenticatedRequest extends Request {
-    user?: Auth0Claims | DemoUser;
+    user?: Auth0Claims;
 }
 
 // ============================================================================
@@ -112,7 +99,7 @@ export interface AuthExchangeResponse {
 
 export interface TokenVerifyResponse {
     valid: boolean;
-    claims?: Auth0Claims | DemoUser;
+    claims?: Auth0Claims;
     error?: string;
 }
 
