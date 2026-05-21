@@ -646,7 +646,7 @@ authRouter.get('/connections', requireAuth, async (req: AuthenticatedRequest, re
 
         const data = connections.map(c => ({
             id: c.providerAccountId,
-            platform: c.provider,
+            platform: c.provider === 'google' ? 'google_drive' : (c.provider === 'windowslive' ? 'onedrive' : c.provider),
             type: c.type,
             scope: c.scope,
             username: null,
@@ -1279,7 +1279,7 @@ authRouter.post('/connections/sync', requireAuth, async (req: AuthenticatedReque
             synced: results.length,
             connections: results.map(c => ({
                 id: c.providerAccountId,
-                platform: c.provider,
+                platform: c.provider === 'google' ? 'google_drive' : (c.provider === 'windowslive' ? 'onedrive' : c.provider),
                 is_active: true,
             })),
         });
