@@ -718,7 +718,7 @@ authRouter.get('/oauth/url', async (req: Request, res: Response) => {
                 return;
             }
             // Scopes differ for Jira vs Confluence
-            let scopes = 'read:me';
+            let scopes = 'read:me offline_access';
             if (provider === 'jira' || provider === 'atlassian') {
                 scopes += ' read:jira-work read:jira-user';
             }
