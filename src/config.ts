@@ -24,6 +24,12 @@ dotenv.config({ path: '.env.secret' });
 
 
 
+interface OAuthProviderConfig {
+    clientId: string;
+    clientSecret: string;
+    redirectUri: string;
+}
+
 interface Config {
     port: number;
     nodeEnv: string;
@@ -44,6 +50,12 @@ interface Config {
         dlqTopic?: string;
     };
     redisUrl: string;
+
+    // Direct OAuth provider configs (non-Auth0 flows)
+    github: OAuthProviderConfig;
+    slack: OAuthProviderConfig;
+    notion: OAuthProviderConfig;
+    atlassian: OAuthProviderConfig; // Jira + Confluence share a single Atlassian OAuth app
 }
 
 function requireEnv(name: string): string {
@@ -107,4 +119,26 @@ export const config: Config = {
         dlqTopic: process.env.KAFKA_DLQ_TOPIC || `${process.env.KAFKA_AUTH_EVENTS_TOPIC || 'auth.events'}.dlq`,
     },
     redisUrl: process.env.REDIS_URL || 'redis://localhost:6379',
+
+    // Direct OAuth provider configs
+    github: {
+        clientId: process.env.GITHUB_CLIENT_ID || 'Ov23liL3MQoIiV6bgA5w',
+        clientSecret: process.env.GITHUB_CLIENT_SECRET || '7e1dd12025ee7c7c43e296192cf16975587729e9',
+        redirectUri: process.env.GITHUB_REDIRECT_URI || `${process.env.FRONTEND_URL || 'http://localhost:3000'}/api/auth/oauth/callback?provider=github`,
+    },
+    slack: {
+        clientId: process.env.SLACK_CLIENT_ID || '',
+        clientSecret: process.env.SLACK_CLIENT_SECRET || '',
+        redirectUri: process.env.SLACK_REDIRECT_URI || `${process.env.FRONTEND_URL || 'http://localhost:3000'}/api/auth/oauth/callback?provider=slack`,
+    },
+    notion: {
+        clientId: process.env.NOTION_CLIENT_ID || '',
+        clientSecret: process.env.NOTION_CLIENT_SECRET || '',
+        redirectUri: process.env.NOTION_REDIRECT_URI || `${process.env.FRONTEND_URL || 'http://localhost:3000'}/api/auth/oauth/callback?provider=notion`,
+    },
+    atlassian: {
+        clientId: process.env.ATLASSIAN_CLIENT_ID || '',
+        clientSecret: process.env.ATLASSIAN_CLIENT_SECRET || '',
+        redirectUri: process.env.ATLASSIAN_REDIRECT_URI || `${process.env.FRONTEND_URL || 'http://localhost:3000'}/api/auth/oauth/callback?provider=atlassian`,
+    },
 };

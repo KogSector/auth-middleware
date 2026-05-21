@@ -670,17 +670,68 @@ authRouter.get('/connections', requireAuth, async (req: AuthenticatedRequest, re
 /**
  * GET /auth/oauth/url
  * Generate OAuth URL for providers
+ * Supports: github, slack, notion, atlassian (jira/confluence)
  */
 authRouter.get('/oauth/url', async (req: Request, res: Response) => {
     try {
         const { provider } = req.query;
+        const state = randomBytes(16).toString('hex');
+
         if (provider === 'github') {
-            const clientId = 'Ov23liL3MQoIiV6bgA5w';
-            const redirectUri = `${config.frontendUrl}/api/auth/oauth/callback`;
-            const state = randomBytes(16).toString('hex');
-            res.json({ url: `https://github.com/login/oauth/authorize?client_id=${clientId}&redirect_uri=${encodeURIComponent(redirectUri)}&state=${state}&scope=repo` });
+            const clientId = config.github.clientId;
+            const redirectUri = config.github.redirectUri;
+            res.json({
+                url: `https://github.com/login/oauth/authorize?client_id=${clientId}&redirect_uri=${encodeURIComponent(redirectUri)}&state=${state}&scope=repo,read:user`,
+                provider: 'github',
+            });
+
+        } else if (provider === 'slack') {
+            const clientId = config.slack.clientId;
+            const redirectUri = config.slack.redirectUri;
+            if (!clientId) {
+                res.status(400).json({ error: 'Slack OAuth is not configured. Set SLACK_CLIENT_ID.' });
+                return;
+            }
+            const scopes = 'channels:history,channels:read,users:read,team:read';
+            res.json({
+                url: `https://slack.com/oauth/v2/authorize?client_id=${clientId}&redirect_uri=${encodeURIComponent(redirectUri)}&state=${state}&scope=${scopes}`,
+                provider: 'slack',
+            });
+
+        } else if (provider === 'notion') {
+            const clientId = config.notion.clientId;
+            const redirectUri = config.notion.redirectUri;
+            if (!clientId) {
+                res.status(400).json({ error: 'Notion OAuth is not configured. Set NOTION_CLIENT_ID.' });
+                return;
+            }
+            res.json({
+                url: `https://api.notion.com/v1/oauth/authorize?client_id=${clientId}&redirect_uri=${encodeURIComponent(redirectUri)}&response_type=code&owner=user&state=${state}`,
+                provider: 'notion',
+            });
+
+        } else if (provider === 'jira' || provider === 'confluence' || provider === 'atlassian') {
+            const clientId = config.atlassian.clientId;
+            const redirectUri = config.atlassian.redirectUri;
+            if (!clientId) {
+                res.status(400).json({ error: 'Atlassian OAuth is not configured. Set ATLASSIAN_CLIENT_ID.' });
+                return;
+            }
+            // Scopes differ for Jira vs Confluence
+            let scopes = 'read:me';
+            if (provider === 'jira' || provider === 'atlassian') {
+                scopes += ' read:jira-work read:jira-user';
+            }
+            if (provider === 'confluence' || provider === 'atlassian') {
+                scopes += ' read:confluence-content.all read:confluence-space.summary';
+            }
+            res.json({
+                url: `https://auth.atlassian.com/authorize?audience=api.atlassian.com&client_id=${clientId}&scope=${encodeURIComponent(scopes)}&redirect_uri=${encodeURIComponent(redirectUri)}&state=${state}&response_type=code&prompt=consent`,
+                provider: provider === 'atlassian' ? 'jira' : provider,
+            });
+
         } else {
-            res.status(400).json({ error: 'Unsupported provider' });
+            res.status(400).json({ error: `Unsupported provider: ${provider}` });
         }
     } catch (error) {
         logger.error('[AUTH-OAUTH-URL] Error', { error });
@@ -691,6 +742,7 @@ authRouter.get('/oauth/url', async (req: Request, res: Response) => {
 /**
  * POST /auth/oauth/exchange
  * Exchange code for token and save connection
+ * Supports: github, slack, notion, atlassian (jira/confluence), custom_apps
  */
 authRouter.post('/oauth/exchange', requireAuth, async (req: AuthenticatedRequest, res: Response) => {
     try {
@@ -702,11 +754,11 @@ authRouter.post('/oauth/exchange', requireAuth, async (req: AuthenticatedRequest
             return;
         }
 
-        const { provider, code } = req.body;
+        const { provider, code, token: customToken, metadata } = req.body;
         
         if (provider === 'github') {
-            const clientId = 'Ov23liL3MQoIiV6bgA5w';
-            const clientSecret = '7e1dd12025ee7c7c43e296192cf16975587729e9';
+            const clientId = config.github.clientId;
+            const clientSecret = config.github.clientSecret;
             
             const tokenRes = await fetch('https://github.com/login/oauth/access_token', {
                 method: 'POST',
@@ -765,8 +817,236 @@ authRouter.post('/oauth/exchange', requireAuth, async (req: AuthenticatedRequest
             });
             
             res.json({ success: true, message: 'GitHub connected successfully' });
+
+        } else if (provider === 'slack') {
+            const clientId = config.slack.clientId;
+            const clientSecret = config.slack.clientSecret;
+            const redirectUri = config.slack.redirectUri;
+
+            if (!clientId || !clientSecret) {
+                res.status(400).json({ error: 'Slack OAuth is not configured. Set SLACK_CLIENT_ID and SLACK_CLIENT_SECRET env vars.' });
+                return;
+            }
+
+            const tokenRes = await fetch('https://slack.com/api/oauth.v2.access', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+                body: new URLSearchParams({
+                    client_id: clientId,
+                    client_secret: clientSecret,
+                    code,
+                    redirect_uri: redirectUri,
+                }).toString(),
+            });
+
+            const tokenData = await tokenRes.json();
+
+            if (!tokenData.ok) {
+                logger.error('[AUTH-OAUTH-EXCHANGE] Slack token error', { error: tokenData.error });
+                res.status(400).json({ error: tokenData.error || 'Slack OAuth failed' });
+                return;
+            }
+
+            const accessToken = tokenData.access_token || tokenData.authed_user?.access_token;
+            const teamId = tokenData.team?.id || 'unknown';
+            const providerAccountId = tokenData.authed_user?.id || teamId;
+
+            await prisma.account.upsert({
+                where: {
+                    provider_providerAccountId: {
+                        provider: 'slack',
+                        providerAccountId: String(providerAccountId),
+                    }
+                },
+                update: {
+                    type: 'oauth',
+                    access_token: accessToken,
+                    scope: tokenData.scope || '',
+                },
+                create: {
+                    userId: user.id,
+                    type: 'oauth',
+                    provider: 'slack',
+                    providerAccountId: String(providerAccountId),
+                    access_token: accessToken,
+                    scope: tokenData.scope || '',
+                }
+            });
+
+            res.json({ success: true, message: 'Slack connected successfully' });
+
+        } else if (provider === 'notion') {
+            const clientId = config.notion.clientId;
+            const clientSecret = config.notion.clientSecret;
+            const redirectUri = config.notion.redirectUri;
+
+            if (!clientId || !clientSecret) {
+                res.status(400).json({ error: 'Notion OAuth is not configured. Set NOTION_CLIENT_ID and NOTION_CLIENT_SECRET env vars.' });
+                return;
+            }
+
+            // Notion uses Basic auth for token exchange
+            const basicAuth = Buffer.from(`${clientId}:${clientSecret}`).toString('base64');
+
+            const tokenRes = await fetch('https://api.notion.com/v1/oauth/token', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Basic ${basicAuth}`,
+                },
+                body: JSON.stringify({
+                    grant_type: 'authorization_code',
+                    code,
+                    redirect_uri: redirectUri,
+                }),
+            });
+
+            const tokenData = await tokenRes.json();
+
+            if (tokenData.error) {
+                logger.error('[AUTH-OAUTH-EXCHANGE] Notion token error', { error: tokenData.error });
+                res.status(400).json({ error: tokenData.error_description || tokenData.error });
+                return;
+            }
+
+            const accessToken = tokenData.access_token;
+            const workspaceId = tokenData.workspace_id || 'unknown';
+            const providerAccountId = tokenData.owner?.user?.id || workspaceId;
+
+            await prisma.account.upsert({
+                where: {
+                    provider_providerAccountId: {
+                        provider: 'notion',
+                        providerAccountId: String(providerAccountId),
+                    }
+                },
+                update: {
+                    type: 'oauth',
+                    access_token: accessToken,
+                    scope: 'read_content',
+                },
+                create: {
+                    userId: user.id,
+                    type: 'oauth',
+                    provider: 'notion',
+                    providerAccountId: String(providerAccountId),
+                    access_token: accessToken,
+                    scope: 'read_content',
+                }
+            });
+
+            res.json({ success: true, message: 'Notion connected successfully' });
+
+        } else if (provider === 'atlassian' || provider === 'jira' || provider === 'confluence') {
+            const clientId = config.atlassian.clientId;
+            const clientSecret = config.atlassian.clientSecret;
+            const redirectUri = config.atlassian.redirectUri;
+
+            if (!clientId || !clientSecret) {
+                res.status(400).json({ error: 'Atlassian OAuth is not configured. Set ATLASSIAN_CLIENT_ID and ATLASSIAN_CLIENT_SECRET env vars.' });
+                return;
+            }
+
+            const tokenRes = await fetch('https://auth.atlassian.com/oauth/token', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    grant_type: 'authorization_code',
+                    client_id: clientId,
+                    client_secret: clientSecret,
+                    code,
+                    redirect_uri: redirectUri,
+                }),
+            });
+
+            const tokenData = await tokenRes.json();
+
+            if (tokenData.error) {
+                logger.error('[AUTH-OAUTH-EXCHANGE] Atlassian token error', { error: tokenData.error });
+                res.status(400).json({ error: tokenData.error_description || tokenData.error });
+                return;
+            }
+
+            const accessToken = tokenData.access_token;
+            const refreshToken = tokenData.refresh_token || null;
+
+            // Get user profile from Atlassian
+            let providerAccountId = 'unknown';
+            try {
+                const profileRes = await fetch('https://api.atlassian.com/me', {
+                    headers: { 'Authorization': `Bearer ${accessToken}` },
+                });
+                const profileData = await profileRes.json();
+                providerAccountId = profileData.account_id || 'unknown';
+            } catch (e) {
+                logger.warn('[AUTH-OAUTH-EXCHANGE] Could not fetch Atlassian profile', { error: e });
+            }
+
+            // Store as the specific provider name (jira or confluence) so the UI shows correctly
+            const storedProvider = provider === 'atlassian' ? 'jira' : provider;
+
+            await prisma.account.upsert({
+                where: {
+                    provider_providerAccountId: {
+                        provider: storedProvider,
+                        providerAccountId: String(providerAccountId),
+                    }
+                },
+                update: {
+                    type: 'oauth',
+                    access_token: accessToken,
+                    refresh_token: refreshToken,
+                    scope: tokenData.scope || '',
+                },
+                create: {
+                    userId: user.id,
+                    type: 'oauth',
+                    provider: storedProvider,
+                    providerAccountId: String(providerAccountId),
+                    access_token: accessToken,
+                    refresh_token: refreshToken,
+                    scope: tokenData.scope || '',
+                }
+            });
+
+            res.json({ success: true, message: `${storedProvider} connected successfully` });
+
+        } else if (provider === 'custom_apps') {
+            // Custom apps use API key/token directly (no OAuth code exchange)
+            if (!customToken) {
+                res.status(400).json({ error: 'Token is required for custom app connections' });
+                return;
+            }
+
+            const appName = metadata?.name || 'custom-app';
+            const providerAccountId = metadata?.app_id || `custom-${Date.now()}`;
+
+            await prisma.account.upsert({
+                where: {
+                    provider_providerAccountId: {
+                        provider: 'custom_apps',
+                        providerAccountId: String(providerAccountId),
+                    }
+                },
+                update: {
+                    type: 'api_key',
+                    access_token: customToken,
+                    scope: metadata?.scope || '',
+                },
+                create: {
+                    userId: user.id,
+                    type: 'api_key',
+                    provider: 'custom_apps',
+                    providerAccountId: String(providerAccountId),
+                    access_token: customToken,
+                    scope: metadata?.scope || '',
+                }
+            });
+
+            res.json({ success: true, message: `Custom app "${appName}" connected successfully` });
+
         } else {
-            res.status(400).json({ error: 'Unsupported provider' });
+            res.status(400).json({ error: `Unsupported provider: ${provider}` });
         }
     } catch (error) {
         logger.error('[AUTH-OAUTH-EXCHANGE] Error', { error });
