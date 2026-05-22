@@ -30,7 +30,6 @@ Authentication and authorization service for the ConFuse platform. Handles Auth0
 ## Features
 
 - **Auth0 Tokens**: Validate Auth0 tokens
-- **OAuth2 Flows**: GitHub, Google, GitLab OAuth integrations
 - **API Keys**: Generate and manage API keys for programmatic access
 - **Session Management**: Redis-backed session storage
 - **Rate Limiting**: Per-user and per-IP rate limits
@@ -48,14 +47,6 @@ Authentication and authorization service for the ConFuse platform. Handles Auth0
 | `/auth/refresh` | POST | Refresh Auth0 token |
 | `/auth/verify` | GET | Verify Auth0 token |
 
-### OAuth
-
-| Endpoint | Method | Description |
-|----------|--------|-------------|
-| `/oauth/github` | GET | Start GitHub OAuth flow |
-| `/oauth/github/callback` | GET | GitHub OAuth callback |
-| `/oauth/google` | GET | Start Google OAuth flow |
-| `/oauth/google/callback` | GET | Google OAuth callback |
 
 ### API Keys
 
@@ -91,10 +82,7 @@ npm test
 | `REDIS_URL` | Redis connection | Required |
 | `TOKEN_CACHE_TTL_SECONDS` | Token cache TTL | `900` |
 | `FEATURE_TOGGLE_SERVICE_URL` | Feature toggle service | `http://localhost:3099` |
-| `GITHUB_CLIENT_ID` | GitHub OAuth client ID | - |
-| `GITHUB_CLIENT_SECRET` | GitHub OAuth secret | - |
-| `GOOGLE_CLIENT_ID` | Google OAuth client ID | - |
-| `GOOGLE_CLIENT_SECRET` | Google OAuth secret | - |
+
 
 ## Logging
 
@@ -145,7 +133,6 @@ const validateToken = async (token) => {
 
 See the [docs/](docs/) folder for detailed documentation:
 - [Authentication Flow](docs/authentication.md)
-- [OAuth Setup](docs/oauth-setup.md)
 - [API Key Management](docs/api-keys.md)
 
 ## License

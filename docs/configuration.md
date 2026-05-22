@@ -49,18 +49,6 @@ RATE_LIMIT_LOGIN_WINDOW=900000
 RATE_LIMIT_REGISTER_MAX=3
 RATE_LIMIT_REGISTER_WINDOW=3600000
 
-# OAuth Providers
-GITHUB_CLIENT_ID=
-GITHUB_CLIENT_SECRET=
-GITHUB_CALLBACK_URL=http://localhost:3001/oauth/github/callback
-
-GOOGLE_CLIENT_ID=
-GOOGLE_CLIENT_SECRET=
-GOOGLE_CALLBACK_URL=http://localhost:3001/oauth/google/callback
-
-GITLAB_CLIENT_ID=
-GITLAB_CLIENT_SECRET=
-GITLAB_CALLBACK_URL=http://localhost:3001/oauth/gitlab/callback
 
 # Frontend URLs
 FRONTEND_URL=http://localhost:3000
@@ -109,47 +97,6 @@ postgresql://[user]:[password]@[host]:[port]/[database]?[options]
 - `sessions` - Active sessions
 - `audit_logs` - Authentication events
 
-### OAuth Provider Setup
-
-#### GitHub OAuth
-
-1. Go to GitHub → Settings → Developer settings → OAuth Apps
-2. Create new OAuth App
-3. Homepage URL: `http://localhost:3000`
-4. Callback URL: `http://localhost:3001/oauth/github/callback`
-5. Copy Client ID and Secret to `.env`
-
-```env
-GITHUB_CLIENT_ID=Iv1.xxxxxxxxxxxx
-GITHUB_CLIENT_SECRET=xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
-GITHUB_CALLBACK_URL=http://localhost:3001/oauth/github/callback
-```
-
-#### Google OAuth
-
-1. Go to Google Cloud Console → APIs & Credentials
-2. Create OAuth 2.0 Client ID
-3. Add authorized redirect URI
-4. Copy Client ID and Secret
-
-```env
-GOOGLE_CLIENT_ID=xxxx.apps.googleusercontent.com
-GOOGLE_CLIENT_SECRET=GOCSPX-xxxxxxxxxxxx
-GOOGLE_CALLBACK_URL=http://localhost:3001/oauth/google/callback
-```
-
-#### GitLab OAuth
-
-1. Go to GitLab → Preferences → Applications
-2. Create new application
-3. Add scopes: `read_user`, `read_api`
-4. Copy Application ID and Secret
-
-```env
-GITLAB_CLIENT_ID=xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
-GITLAB_CLIENT_SECRET=xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
-GITLAB_CALLBACK_URL=http://localhost:3001/oauth/gitlab/callback
-```
 
 ### Rate Limiting Configuration
 
