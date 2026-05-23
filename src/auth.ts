@@ -686,6 +686,22 @@ authRouter.get('/oauth/url', async (req: Request, res: Response) => {
                 provider: 'github',
             });
 
+        } else if (provider === 'gitlab') {
+            const clientId = config.gitlab.clientId;
+            const redirectUri = config.gitlab.redirectUri;
+            res.json({
+                url: `https://gitlab.com/oauth/authorize?client_id=${clientId}&redirect_uri=${encodeURIComponent(redirectUri)}&response_type=code&state=${state}&scope=read_api%20read_repository`,
+                provider: 'gitlab',
+            });
+
+        } else if (provider === 'bitbucket') {
+            const clientId = config.bitbucket.clientId;
+            const redirectUri = config.bitbucket.redirectUri;
+            res.json({
+                url: `https://bitbucket.org/site/oauth2/authorize?client_id=${clientId}&redirect_uri=${encodeURIComponent(redirectUri)}&response_type=code&state=${state}`,
+                provider: 'bitbucket',
+            });
+
         } else if (provider === 'slack') {
             const clientId = config.slack.clientId;
             const redirectUri = config.slack.redirectUri;
@@ -818,6 +834,149 @@ authRouter.post('/oauth/exchange', requireAuth, async (req: AuthenticatedRequest
             });
             
             res.json({ success: true, message: 'GitHub connected successfully' });
+
+        } else if (provider === 'gitlab') {
+            const clientId = config.gitlab.clientId;
+            const clientSecret = config.gitlab.clientSecret;
+            const redirectUri = config.gitlab.redirectUri;
+            
+            const tokenRes = await fetch('https://gitlab.com/oauth/token', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Accept': 'application/json'
+                },
+                body: JSON.stringify({
+                    client_id: clientId,
+                    client_secret: clientSecret,
+                    code,
+                    grant_type: 'authorization_code',
+                    redirect_uri: redirectUri
+                })
+            });
+            
+            const tokenData = await tokenRes.json();
+            
+            if (tokenData.error) {
+                logger.error('[AUTH-OAUTH-EXCHANGE] GitLab token error', { error: tokenData.error });
+                res.status(400).json({ error: tokenData.error_description || tokenData.error });
+                return;
+            }
+            
+            const accessToken = tokenData.access_token;
+            const refreshToken = tokenData.refresh_token;
+            const expiresIn = tokenData.expires_in;
+            
+            // Get user info to get providerAccountId
+            const userRes = await fetch('https://gitlab.com/api/v4/user', {
+                headers: {
+                    'Authorization': `Bearer ${accessToken}`,
+                    'Accept': 'application/json'
+                }
+            });
+            
+            const userData = await userRes.json();
+            const providerAccountId = String(userData.id);
+            
+            await prisma.account.upsert({
+                where: {
+                    provider_providerAccountId: {
+                        provider: 'gitlab',
+                        providerAccountId
+                    }
+                },
+                update: {
+                    type: 'oauth',
+                    access_token: accessToken,
+                    refresh_token: refreshToken,
+                    expires_at: expiresIn ? Math.floor(Date.now() / 1000) + expiresIn : null,
+                    scope: tokenData.scope || 'read_api read_repository',
+                },
+                create: {
+                    userId: user.id,
+                    type: 'oauth',
+                    provider: 'gitlab',
+                    providerAccountId,
+                    access_token: accessToken,
+                    refresh_token: refreshToken,
+                    expires_at: expiresIn ? Math.floor(Date.now() / 1000) + expiresIn : null,
+                    scope: tokenData.scope || 'read_api read_repository',
+                }
+            });
+
+            res.json({ success: true, message: 'GitLab connected successfully' });
+
+        } else if (provider === 'bitbucket') {
+            const clientId = config.bitbucket.clientId;
+            const clientSecret = config.bitbucket.clientSecret;
+            const redirectUri = config.bitbucket.redirectUri;
+            
+            const credentials = Buffer.from(`${clientId}:${clientSecret}`).toString('base64');
+            
+            const tokenRes = await fetch('https://bitbucket.org/site/oauth2/access_token', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/x-www-form-urlencoded',
+                    'Authorization': `Basic ${credentials}`,
+                    'Accept': 'application/json'
+                },
+                body: new URLSearchParams({
+                    grant_type: 'authorization_code',
+                    code,
+                    redirect_uri: redirectUri
+                }).toString()
+            });
+            
+            const tokenData = await tokenRes.json();
+            
+            if (tokenData.error) {
+                logger.error('[AUTH-OAUTH-EXCHANGE] Bitbucket token error', { error: tokenData.error });
+                res.status(400).json({ error: tokenData.error_description || tokenData.error });
+                return;
+            }
+            
+            const accessToken = tokenData.access_token;
+            const refreshToken = tokenData.refresh_token;
+            const expiresIn = tokenData.expires_in;
+            
+            // Get user info to get providerAccountId
+            const userRes = await fetch('https://api.bitbucket.org/2.0/user', {
+                headers: {
+                    'Authorization': `Bearer ${accessToken}`,
+                    'Accept': 'application/json'
+                }
+            });
+            
+            const userData = await userRes.json();
+            const providerAccountId = String(userData.account_id);
+            
+            await prisma.account.upsert({
+                where: {
+                    provider_providerAccountId: {
+                        provider: 'bitbucket',
+                        providerAccountId
+                    }
+                },
+                update: {
+                    type: 'oauth',
+                    access_token: accessToken,
+                    refresh_token: refreshToken,
+                    expires_at: expiresIn ? Math.floor(Date.now() / 1000) + expiresIn : null,
+                    scope: tokenData.scopes || 'repository',
+                },
+                create: {
+                    userId: user.id,
+                    type: 'oauth',
+                    provider: 'bitbucket',
+                    providerAccountId,
+                    access_token: accessToken,
+                    refresh_token: refreshToken,
+                    expires_at: expiresIn ? Math.floor(Date.now() / 1000) + expiresIn : null,
+                    scope: tokenData.scopes || 'repository',
+                }
+            });
+
+            res.json({ success: true, message: 'Bitbucket connected successfully' });
 
         } else if (provider === 'slack') {
             const clientId = config.slack.clientId;

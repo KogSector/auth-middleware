@@ -56,6 +56,8 @@ interface Config {
     slack: OAuthProviderConfig;
     notion: OAuthProviderConfig;
     atlassian: OAuthProviderConfig; // Jira + Confluence share a single Atlassian OAuth app
+    gitlab: OAuthProviderConfig;
+    bitbucket: OAuthProviderConfig;
 }
 
 function requireEnv(name: string): string {
@@ -110,7 +112,7 @@ export const config: Config = {
 
     // Internal API Key
     internalApiKey: process.env.INTERNAL_API_KEY || 'default-internal-key',
-    
+
     // Kafka
     kafka: {
         bootstrapServers: process.env.KAFKA_BOOTSTRAP_SERVERS || 'localhost:9092',
@@ -140,5 +142,15 @@ export const config: Config = {
         clientId: process.env.ATLASSIAN_CLIENT_ID || '',
         clientSecret: process.env.ATLASSIAN_CLIENT_SECRET || '',
         redirectUri: process.env.ATLASSIAN_REDIRECT_URI || `${process.env.FRONTEND_URL || 'http://localhost:3000'}/api/auth/oauth/callback?provider=atlassian`,
+    },
+    gitlab: {
+        clientId: process.env.GITLAB_CLIENT_ID || '',
+        clientSecret: process.env.GITLAB_CLIENT_SECRET || '',
+        redirectUri: process.env.GITLAB_REDIRECT_URI || `${process.env.FRONTEND_URL || 'http://localhost:3000'}/api/auth/oauth/callback`,
+    },
+    bitbucket: {
+        clientId: process.env.BITBUCKET_CLIENT_ID || '',
+        clientSecret: process.env.BITBUCKET_CLIENT_SECRET || '',
+        redirectUri: process.env.BITBUCKET_REDIRECT_URI || `${process.env.FRONTEND_URL || 'http://localhost:3000'}/api/auth/oauth/callback`,
     },
 };
