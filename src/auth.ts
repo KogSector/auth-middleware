@@ -1453,6 +1453,61 @@ authRouter.post('/connections/sync', requireAuth, async (req: AuthenticatedReque
     }
 });
 
+async function refreshTokenIfNeeded(account: any, provider: string): Promise<string> {
+    let finalAccessToken = account.access_token;
+    
+    let needsRefresh = false;
+    if (provider === 'gitlab') {
+        if (account.expires_at && account.expires_at < Date.now() / 1000 + 60) {
+            needsRefresh = true;
+        } else {
+            // Test token validity
+            try {
+                const testRes = await fetch('https://gitlab.com/api/v4/user', {
+                    headers: { 'Authorization': `Bearer ${finalAccessToken}` }
+                });
+                if (testRes.status === 401) {
+                    needsRefresh = true;
+                }
+            } catch (e) {
+                // Ignore network errors here, let the actual request fail if so
+            }
+        }
+    }
+
+    if (needsRefresh && account.refresh_token) {
+        try {
+            const tokenRes = await fetch('https://gitlab.com/oauth/token', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    client_id: config.gitlab.clientId,
+                    client_secret: config.gitlab.clientSecret,
+                    refresh_token: account.refresh_token,
+                    grant_type: 'refresh_token'
+                })
+            });
+            const tokenData = await tokenRes.json();
+            if (!tokenData.error && tokenData.access_token) {
+                finalAccessToken = tokenData.access_token;
+                await prisma.account.update({
+                    where: { id: account.id },
+                    data: {
+                        access_token: finalAccessToken,
+                        refresh_token: tokenData.refresh_token || account.refresh_token,
+                        expires_at: tokenData.expires_in ? Math.floor(Date.now() / 1000) + tokenData.expires_in : null
+                    }
+                });
+            } else {
+                console.error('GitLab token refresh failed:', tokenData);
+            }
+        } catch (err) {
+            console.error('Error refreshing token:', err);
+        }
+    }
+    return finalAccessToken;
+}
+
 /**
  * GET /auth/connections/:provider/token
  * Fetch the decrypted access token for a connected provider
@@ -1481,10 +1536,12 @@ authRouter.get('/connections/:provider/token', requireAuth, async (req: Authenti
             return;
         }
 
+        const finalToken = await refreshTokenIfNeeded(account, provider);
+
         res.json({
             success: true,
             provider,
-            access_token: account.access_token
+            access_token: finalToken
         });
 
     } catch (error) {
@@ -1527,10 +1584,12 @@ authRouter.post('/internal/tokens', async (req: Request, res: Response) => {
             return;
         }
 
+        const finalToken = await refreshTokenIfNeeded(account, provider);
+
         res.json({
             success: true,
             provider,
-            access_token: account.access_token,
+            access_token: finalToken,
             refresh_token: account.refresh_token,
             token_type: 'Bearer' // Add if needed
         });
