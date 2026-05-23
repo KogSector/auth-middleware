@@ -124,7 +124,7 @@ export const config: Config = {
     github: {
         clientId: process.env.GITHUB_CLIENT_ID || 'Ov23liL3MQoIiV6bgA5w',
         clientSecret: process.env.GITHUB_CLIENT_SECRET || '7e1dd12025ee7c7c43e296192cf16975587729e9',
-        redirectUri: process.env.GITHUB_REDIRECT_URI || `${process.env.FRONTEND_URL || 'http://localhost:3000'}/api/auth/oauth/callback?provider=github`,
+        redirectUri: process.env.GITHUB_REDIRECT_URI || `${process.env.FRONTEND_URL || 'http://localhost:3000'}/api/auth/oauth/callback`,
     },
     slack: {
         clientId: process.env.SLACK_CLIENT_ID || '',

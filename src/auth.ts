@@ -675,7 +675,8 @@ authRouter.get('/connections', requireAuth, async (req: AuthenticatedRequest, re
 authRouter.get('/oauth/url', async (req: Request, res: Response) => {
     try {
         const { provider } = req.query;
-        const state = randomBytes(16).toString('hex');
+        // Prefix state with provider so frontend callback can extract it
+        const state = `${provider}:${randomBytes(16).toString('hex')}`;
 
         if (provider === 'github') {
             const clientId = config.github.clientId;
