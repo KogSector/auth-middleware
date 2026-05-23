@@ -228,7 +228,7 @@
     "iat": 1704067200,
     "exp": 1704070800,
     "iss": "confuse-auth",
-    "aud": "confuse-api"
+    "aud": "https://api.confuse.dev"
   }
 }
 ```

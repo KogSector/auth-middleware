@@ -79,7 +79,7 @@ export const config: Config = {
     auth0: {
         domain: process.env.AUTH0_DOMAIN || 'dev-placeholder.auth0.com',
         issuer: process.env.AUTH0_ISSUER || 'https://dev-placeholder.auth0.com/',
-        audience: process.env.AUTH0_AUDIENCE || 'confuse-api',
+        audience: process.env.AUTH0_AUDIENCE || 'https://api.confuse.dev',
         jwksUri: process.env.AUTH0_JWKS_URI ||
             `https://${process.env.AUTH0_DOMAIN || 'dev-placeholder.auth0.com'}/.well-known/jwks.json`,
         clientId: process.env.AUTH0_CLIENT_ID,

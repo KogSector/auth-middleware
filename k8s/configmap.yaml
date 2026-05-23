@@ -11,7 +11,7 @@ data:
   
   # Auth0 Configuration
   AUTH0_DOMAIN: "confuse.auth0.com"
-  AUTH0_AUDIENCE: "https://confuse-api"
+  AUTH0_AUDIENCE: "https://api.confuse.dev"
   
   # CORS Configuration
   CORS_ORIGINS: "http://localhost:3000,https://confuse.platform.example.com"

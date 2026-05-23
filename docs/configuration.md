@@ -29,7 +29,7 @@ NODE_ENV=development
 
 # JWT Advanced
 JWT_ISSUER=confuse-auth
-JWT_AUDIENCE=confuse-api
+JWT_AUDIENCE=https://api.confuse.dev
 JWT_ALGORITHM=HS256
 
 # Password Requirements
