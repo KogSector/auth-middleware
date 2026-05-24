@@ -1542,7 +1542,7 @@ authRouter.post('/connections/sync', requireAuth, async (req: AuthenticatedReque
     }
 });
 
-async function refreshTokenIfNeeded(account: any, provider: string): Promise<string> {
+export async function refreshTokenIfNeeded(account: any, provider: string): Promise<string> {
     let finalAccessToken = account.access_token;
     
     let needsRefresh = false;

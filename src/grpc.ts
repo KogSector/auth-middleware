@@ -5,7 +5,7 @@ import * as protoLoader from '@grpc/proto-loader';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import { config } from './config.js';
-import { verifyAuth0Token, extractRoles } from './auth.js';
+import { verifyAuth0Token, extractRoles, refreshTokenIfNeeded } from './auth.js';
 import { findById } from './services/user.js';
 import { logger } from './utils/logger.js';
 import { prisma } from './infra/db/client.js';
@@ -107,10 +107,12 @@ const getInternalToken = async (call: any, callback: any) => {
             return callback(null, { success: false, error: 'Connection not found' });
         }
 
+        const finalToken = await refreshTokenIfNeeded(account, provider);
+
         callback(null, {
             success: true,
             provider: account.provider,
-            access_token: account.access_token,
+            access_token: finalToken,
             refresh_token: account.refresh_token || '',
             token_type: 'Bearer',
         });
