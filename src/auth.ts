@@ -747,6 +747,20 @@ authRouter.get('/oauth/url', async (req: Request, res: Response) => {
                 provider: provider === 'atlassian' ? 'jira' : provider,
             });
 
+        } else if (provider === 'microsoft' || provider === 'onedrive') {
+            const clientId = config.microsoft.clientId;
+            const tenantId = config.microsoft.tenantId || 'common';
+            const redirectUri = config.microsoft.redirectUri;
+            if (!clientId) {
+                res.status(400).json({ error: 'Microsoft OAuth is not configured. Set MICROSOFT_CLIENT_ID.' });
+                return;
+            }
+            const scopes = 'Files.Read.All Sites.Read.All offline_access User.Read';
+            res.json({
+                url: `https://login.microsoftonline.com/${tenantId}/oauth2/v2.0/authorize?client_id=${clientId}&response_type=code&scope=${encodeURIComponent(scopes)}&redirect_uri=${encodeURIComponent(redirectUri)}&state=${state}&response_mode=query`,
+                provider: 'microsoft',
+            });
+
         } else {
             res.status(400).json({ error: `Unsupported provider: ${provider}` });
         }
@@ -1170,6 +1184,81 @@ authRouter.post('/oauth/exchange', requireAuth, async (req: AuthenticatedRequest
             });
 
             res.json({ success: true, message: `${storedProvider} connected successfully` });
+
+        } else if (provider === 'microsoft' || provider === 'onedrive') {
+            const clientId = config.microsoft.clientId;
+            const clientSecret = config.microsoft.clientSecret;
+            const tenantId = config.microsoft.tenantId || 'common';
+            const redirectUri = config.microsoft.redirectUri;
+
+            if (!clientId || !clientSecret) {
+                res.status(400).json({ error: 'Microsoft OAuth is not configured. Set MICROSOFT_CLIENT_ID and MICROSOFT_CLIENT_SECRET env vars.' });
+                return;
+            }
+
+            const tokenRes = await fetch(`https://login.microsoftonline.com/${tenantId}/oauth2/v2.0/token`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+                body: new URLSearchParams({
+                    client_id: clientId,
+                    client_secret: clientSecret,
+                    code,
+                    redirect_uri: redirectUri,
+                    grant_type: 'authorization_code'
+                }).toString(),
+            });
+
+            const tokenData = await tokenRes.json();
+
+            if (tokenData.error) {
+                logger.error('[AUTH-OAUTH-EXCHANGE] Microsoft token error', { error: tokenData.error });
+                res.status(400).json({ error: tokenData.error_description || tokenData.error });
+                return;
+            }
+
+            const accessToken = tokenData.access_token;
+            const refreshToken = tokenData.refresh_token || null;
+            const expiresIn = tokenData.expires_in;
+
+            // Get user profile from Microsoft Graph
+            let providerAccountId = 'unknown';
+            try {
+                const profileRes = await fetch('https://graph.microsoft.com/v1.0/me', {
+                    headers: { 'Authorization': `Bearer ${accessToken}` },
+                });
+                const profileData = await profileRes.json();
+                providerAccountId = profileData.id || 'unknown';
+            } catch (e) {
+                logger.warn('[AUTH-OAUTH-EXCHANGE] Could not fetch Microsoft profile', { error: e });
+            }
+
+            await prisma.account.upsert({
+                where: {
+                    provider_providerAccountId: {
+                        provider: 'windowslive',
+                        providerAccountId: String(providerAccountId),
+                    }
+                },
+                update: {
+                    type: 'oauth',
+                    access_token: accessToken,
+                    refresh_token: refreshToken,
+                    expires_at: expiresIn ? Math.floor(Date.now() / 1000) + expiresIn : null,
+                    scope: tokenData.scope || '',
+                },
+                create: {
+                    userId: user.id,
+                    type: 'oauth',
+                    provider: 'windowslive',
+                    providerAccountId: String(providerAccountId),
+                    access_token: accessToken,
+                    refresh_token: refreshToken,
+                    expires_at: expiresIn ? Math.floor(Date.now() / 1000) + expiresIn : null,
+                    scope: tokenData.scope || '',
+                }
+            });
+
+            res.json({ success: true, message: `Microsoft connected successfully` });
 
         } else if (provider === 'custom_apps') {
             // Custom apps use API key/token directly (no OAuth code exchange)

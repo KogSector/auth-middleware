@@ -58,6 +58,7 @@ interface Config {
     atlassian: OAuthProviderConfig; // Jira + Confluence share a single Atlassian OAuth app
     gitlab: OAuthProviderConfig;
     bitbucket: OAuthProviderConfig;
+    microsoft: OAuthProviderConfig & { tenantId: string };
 }
 
 function requireEnv(name: string): string {
@@ -152,5 +153,11 @@ export const config: Config = {
         clientId: process.env.BITBUCKET_CLIENT_ID || '',
         clientSecret: process.env.BITBUCKET_CLIENT_SECRET || '',
         redirectUri: process.env.BITBUCKET_REDIRECT_URI || `${process.env.FRONTEND_URL || 'http://localhost:3000'}/api/auth/oauth/callback`,
+    },
+    microsoft: {
+        clientId: process.env.MICROSOFT_CLIENT_ID || '',
+        clientSecret: process.env.MICROSOFT_CLIENT_SECRET || '',
+        tenantId: process.env.MICROSOFT_TENANT_ID || 'common',
+        redirectUri: process.env.MICROSOFT_REDIRECT_URI || `${process.env.FRONTEND_URL || 'http://localhost:3000'}/api/auth/oauth/callback?provider=microsoft`,
     },
 };
