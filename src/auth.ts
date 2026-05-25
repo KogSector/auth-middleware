@@ -1412,10 +1412,14 @@ authRouter.delete('/connections/:provider', requireAuth, async (req: Authenticat
             return;
         }
 
+        let targetProvider = provider;
+        if (provider === 'google_drive') targetProvider = 'google';
+        if (provider === 'onedrive') targetProvider = 'windowslive';
+
         await prisma.account.deleteMany({
             where: {
                 userId: user.id,
-                provider,
+                provider: targetProvider,
             },
         });
 
