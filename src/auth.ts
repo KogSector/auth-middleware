@@ -10,11 +10,12 @@ import type { Response as ExpressResponse, NextFunction } from 'express';
 import { createRemoteJWKSet, jwtVerify } from 'jose';
 import { Redis } from 'ioredis';
 import { randomBytes, createHash } from 'crypto';
-import { logger } from './utils/logger.js';
 
+import { logger } from './utils/logger.js';
 import { config } from './config.js';
 import { tokenCache } from './services/cache.js';
 import { findOrCreateByAuth0, findByAuth0Sub, findByEmail, toProfile } from './services/user.js';
+import { FeatureToggleClient } from './services/toggle.js';
 import prisma from './infra/db/client.js';
 import type { AuthenticatedRequest, AuthExchangeResponse, TokenVerifyResponse, Auth0Claims, Auth0UserInfo, CacheStats } from './types/index.js';
 

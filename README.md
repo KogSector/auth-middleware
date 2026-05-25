@@ -92,10 +92,6 @@ The service includes extensive structured logging for debugging:
 [AUTH-MIDDLEWARE] Starting Auth Middleware Service...
 [FEATURE-TOGGLE] Feature toggle client initialized
 [AUTH-MIDDLEWARE] [REQUEST] [req_xxx] GET /api/auth/me started
-[FEATURE-TOGGLE] Checking if auth bypass is enabled...
-[FEATURE-TOGGLE] Auth bypass enabled: true
-[FEATURE-TOGGLE] Getting bypass demo user...
- Auth bypass enabled - using demo user: demo@confuse.dev
 [AUTH-MIDDLEWARE] [RESPONSE] [req_xxx] [SUCCESS] GET /me 200 794ms
 ```
 
@@ -110,10 +106,7 @@ The auth-middleware integrates with feature-context-toggle for development featu
 
 | Toggle | Effect |
 |--------|--------|
-| `authBypass` | Skip authentication, use demo user |
 | `debugLogging` | Enable verbose logging |
-
-When `authBypass` is enabled, the `/api/auth/me` endpoint returns a demo user without requiring authentication.
 
 ## Integration with Other Services
 
