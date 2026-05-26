@@ -42,13 +42,6 @@ interface Config {
     frontendUrl: string;
     grpcPort: number;
     internalApiKey: string;
-    kafka?: {
-        bootstrapServers: string;
-        clientId: string;
-        eventsTopic: string;
-        // Optional dead-letter queue topic for failed messages
-        dlqTopic?: string;
-    };
     redisUrl: string;
 
     // Direct OAuth provider configs (non-Auth0 flows)
@@ -114,13 +107,6 @@ export const config: Config = {
     // Internal API Key
     internalApiKey: process.env.INTERNAL_API_KEY || 'default-internal-key',
 
-    // Kafka
-    kafka: {
-        bootstrapServers: process.env.KAFKA_BOOTSTRAP_SERVERS || 'localhost:9092',
-        clientId: process.env.KAFKA_CLIENT_ID || 'auth-middleware',
-        eventsTopic: process.env.KAFKA_AUTH_EVENTS_TOPIC || 'auth.events',
-        dlqTopic: process.env.KAFKA_DLQ_TOPIC || `${process.env.KAFKA_AUTH_EVENTS_TOPIC || 'auth.events'}.dlq`,
-    },
     redisUrl: process.env.REDIS_URL || 'redis://localhost:6379',
 
     // Direct OAuth provider configs
