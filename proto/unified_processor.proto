@@ -5,7 +5,6 @@ package confuse.processor.v1;
 // Unified Processor Service
 // Handles document and code processing with intelligent chunking
 // Delegates embedding generation to embeddings-service
-// Delegates storage to relation-graph
 service UnifiedProcessor {
   // Process single file (chunk -> embed -> store pipeline)
   rpc ProcessFile(ProcessFileRequest) returns (ProcessFileResponse);
