@@ -675,7 +675,7 @@ authRouter.get('/connections', requireAuth, async (req: AuthenticatedRequest, re
  */
 authRouter.get('/oauth/url', async (req: Request, res: Response) => {
     try {
-        const { provider } = req.query;
+        const { provider, login_hint } = req.query;
         // Prefix state with provider so frontend callback can extract it
         const state = `${provider}:${randomBytes(16).toString('hex')}`;
 
@@ -723,8 +723,12 @@ authRouter.get('/oauth/url', async (req: Request, res: Response) => {
                 res.status(400).json({ error: 'Notion OAuth is not configured. Set NOTION_CLIENT_ID.' });
                 return;
             }
+            let notionUrl = `https://api.notion.com/v1/oauth/authorize?client_id=${clientId}&redirect_uri=${encodeURIComponent(redirectUri)}&response_type=code&owner=user&state=${state}`;
+            if (login_hint) {
+                notionUrl += `&login_hint=${encodeURIComponent(login_hint as string)}`;
+            }
             res.json({
-                url: `https://api.notion.com/v1/oauth/authorize?client_id=${clientId}&redirect_uri=${encodeURIComponent(redirectUri)}&response_type=code&owner=user&state=${state}`,
+                url: notionUrl,
                 provider: 'notion',
             });
 
@@ -757,8 +761,12 @@ authRouter.get('/oauth/url', async (req: Request, res: Response) => {
                 return;
             }
             const scopes = 'Files.Read.All Sites.Read.All offline_access User.Read';
+            let msUrl = `https://login.microsoftonline.com/${tenantId}/oauth2/v2.0/authorize?client_id=${clientId}&response_type=code&scope=${encodeURIComponent(scopes)}&redirect_uri=${encodeURIComponent(redirectUri)}&state=${state}&response_mode=query`;
+            if (login_hint) {
+                msUrl += `&login_hint=${encodeURIComponent(login_hint as string)}`;
+            }
             res.json({
-                url: `https://login.microsoftonline.com/${tenantId}/oauth2/v2.0/authorize?client_id=${clientId}&response_type=code&scope=${encodeURIComponent(scopes)}&redirect_uri=${encodeURIComponent(redirectUri)}&state=${state}&response_mode=query`,
+                url: msUrl,
                 provider: 'microsoft',
             });
 
