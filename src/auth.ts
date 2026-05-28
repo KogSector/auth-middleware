@@ -754,7 +754,7 @@ authRouter.get('/oauth/url', async (req: Request, res: Response) => {
 
         } else if (provider === 'microsoft' || provider === 'onedrive') {
             const clientId = config.microsoft.clientId;
-            const tenantId = config.microsoft.tenantId || 'common';
+            const tenantId = config.microsoft.tenantId || 'consumers';
             const redirectUri = config.microsoft.redirectUri;
             if (!clientId) {
                 res.status(400).json({ error: 'Microsoft OAuth is not configured. Set MICROSOFT_CLIENT_ID.' });
@@ -1197,7 +1197,7 @@ authRouter.post('/oauth/exchange', requireAuth, async (req: AuthenticatedRequest
         } else if (provider === 'microsoft' || provider === 'onedrive') {
             const clientId = config.microsoft.clientId;
             const clientSecret = config.microsoft.clientSecret;
-            const tenantId = config.microsoft.tenantId || 'common';
+            const tenantId = config.microsoft.tenantId || 'consumers';
             const redirectUri = config.microsoft.redirectUri;
 
             if (!clientId || !clientSecret) {
