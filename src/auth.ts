@@ -1241,10 +1241,12 @@ authRouter.post('/oauth/exchange', requireAuth, async (req: AuthenticatedRequest
                 logger.warn('[AUTH-OAUTH-EXCHANGE] Could not fetch Microsoft profile', { error: e });
             }
 
+            const storedProvider = provider === 'onedrive' ? 'onedrive' : 'windowslive';
+
             await prisma.account.upsert({
                 where: {
                     provider_providerAccountId: {
-                        provider: 'windowslive',
+                        provider: storedProvider,
                         providerAccountId: String(providerAccountId),
                     }
                 },
@@ -1258,7 +1260,7 @@ authRouter.post('/oauth/exchange', requireAuth, async (req: AuthenticatedRequest
                 create: {
                     userId: user.id,
                     type: 'oauth',
-                    provider: 'windowslive',
+                    provider: storedProvider,
                     providerAccountId: String(providerAccountId),
                     access_token: accessToken,
                     refresh_token: refreshToken,
@@ -1575,33 +1577,55 @@ export async function refreshTokenIfNeeded(account: any, provider: string): Prom
                 // Ignore network errors here, let the actual request fail if so
             }
         }
+    } else if (provider === 'microsoft' || provider === 'onedrive' || provider === 'windowslive') {
+        if (account.expires_at && account.expires_at < Date.now() / 1000 + 60) {
+            needsRefresh = true;
+        }
     }
 
     if (needsRefresh && account.refresh_token) {
         try {
-            const tokenRes = await fetch('https://gitlab.com/oauth/token', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    client_id: config.gitlab.clientId,
-                    client_secret: config.gitlab.clientSecret,
-                    refresh_token: account.refresh_token,
-                    grant_type: 'refresh_token'
-                })
-            });
-            const tokenData = await tokenRes.json();
-            if (!tokenData.error && tokenData.access_token) {
-                finalAccessToken = tokenData.access_token;
-                await prisma.account.update({
-                    where: { id: account.id },
-                    data: {
-                        access_token: finalAccessToken,
-                        refresh_token: tokenData.refresh_token || account.refresh_token,
-                        expires_at: tokenData.expires_in ? Math.floor(Date.now() / 1000) + tokenData.expires_in : null
-                    }
+            let tokenRes;
+            if (provider === 'gitlab') {
+                tokenRes = await fetch('https://gitlab.com/oauth/token', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        client_id: config.gitlab.clientId,
+                        client_secret: config.gitlab.clientSecret,
+                        refresh_token: account.refresh_token,
+                        grant_type: 'refresh_token'
+                    })
                 });
-            } else {
-                console.error('GitLab token refresh failed:', tokenData);
+            } else if (provider === 'microsoft' || provider === 'onedrive' || provider === 'windowslive') {
+                const tenantId = config.microsoft.tenantId || 'consumers';
+                tokenRes = await fetch(`https://login.microsoftonline.com/${tenantId}/oauth2/v2.0/token`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+                    body: new URLSearchParams({
+                        client_id: config.microsoft.clientId,
+                        client_secret: config.microsoft.clientSecret,
+                        refresh_token: account.refresh_token,
+                        grant_type: 'refresh_token'
+                    }).toString()
+                });
+            }
+
+            if (tokenRes) {
+                const tokenData = await tokenRes.json();
+                if (!tokenData.error && tokenData.access_token) {
+                    finalAccessToken = tokenData.access_token;
+                    await prisma.account.update({
+                        where: { id: account.id },
+                        data: {
+                            access_token: finalAccessToken,
+                            refresh_token: tokenData.refresh_token || account.refresh_token,
+                            expires_at: tokenData.expires_in ? Math.floor(Date.now() / 1000) + tokenData.expires_in : null
+                        }
+                    });
+                } else {
+                    console.error(`${provider} token refresh failed:`, tokenData);
+                }
             }
         } catch (err) {
             console.error('Error refreshing token:', err);
