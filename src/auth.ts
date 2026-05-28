@@ -760,7 +760,7 @@ authRouter.get('/oauth/url', async (req: Request, res: Response) => {
                 res.status(400).json({ error: 'Microsoft OAuth is not configured. Set MICROSOFT_CLIENT_ID.' });
                 return;
             }
-            const scopes = 'Files.Read.All Sites.Read.All offline_access User.Read';
+            const scopes = 'https://graph.microsoft.com/Files.Read.All https://graph.microsoft.com/Sites.Read.All offline_access https://graph.microsoft.com/User.Read';
             let msUrl = `https://login.microsoftonline.com/${tenantId}/oauth2/v2.0/authorize?client_id=${clientId}&response_type=code&scope=${encodeURIComponent(scopes)}&redirect_uri=${encodeURIComponent(redirectUri)}&state=${state}&response_mode=query`;
             if (login_hint) {
                 msUrl += `&login_hint=${encodeURIComponent(login_hint as string)}`;
