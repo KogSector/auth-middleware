@@ -28,9 +28,6 @@ interface OAuthProviderConfig {
     clientId: string;
     clientSecret: string;
     redirectUri: string;
-    appId?: string;
-    appName?: string;
-    privateKey?: string;
 }
 
 interface Config {
@@ -117,9 +114,6 @@ export const config: Config = {
         clientId: process.env.GITHUB_CLIENT_ID || 'Ov23liL3MQoIiV6bgA5w',
         clientSecret: process.env.GITHUB_CLIENT_SECRET || '7e1dd12025ee7c7c43e296192cf16975587729e9',
         redirectUri: process.env.GITHUB_REDIRECT_URI || `${process.env.FRONTEND_URL || 'http://localhost:3000'}/api/auth/oauth/callback`,
-        appId: process.env.GITHUB_APP_ID || '',
-        appName: process.env.GITHUB_APP_NAME || '',
-        privateKey: process.env.GITHUB_PRIVATE_KEY ? Buffer.from(process.env.GITHUB_PRIVATE_KEY, 'base64').toString('ascii') : '',
     },
     slack: {
         clientId: process.env.SLACK_CLIENT_ID || '',
