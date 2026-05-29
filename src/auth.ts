@@ -682,10 +682,21 @@ authRouter.get('/oauth/url', async (req: Request, res: Response) => {
         if (provider === 'github') {
             const clientId = config.github.clientId;
             const redirectUri = config.github.redirectUri;
-            res.json({
-                url: `https://github.com/login/oauth/authorize?client_id=${clientId}&redirect_uri=${encodeURIComponent(redirectUri)}&state=${state}&scope=repo,read:user`,
-                provider: 'github',
-            });
+            const appName = config.github.appName;
+
+            if (appName) {
+                // If GitHub App is configured, return the installation URL
+                res.json({
+                    url: `https://github.com/apps/${appName}/installations/new?state=${state}`,
+                    provider: 'github',
+                });
+            } else {
+                // Fallback to legacy OAuth App
+                res.json({
+                    url: `https://github.com/login/oauth/authorize?client_id=${clientId}&redirect_uri=${encodeURIComponent(redirectUri)}&state=${state}&scope=repo,read:user`,
+                    provider: 'github',
+                });
+            }
 
         } else if (provider === 'gitlab') {
             const clientId = config.gitlab.clientId;
@@ -794,11 +805,42 @@ authRouter.post('/oauth/exchange', requireAuth, async (req: AuthenticatedRequest
             return;
         }
 
-        const { provider, code, token: customToken, metadata } = req.body;
+        const { provider, code, token: customToken, metadata, installation_id } = req.body;
         
         if (provider === 'github') {
             const clientId = config.github.clientId;
             const clientSecret = config.github.clientSecret;
+            const appName = config.github.appName;
+
+            if (installation_id) {
+                // This is a GitHub App installation callback
+                const providerAccountId = `installation_${installation_id}`;
+                
+                await prisma.account.upsert({
+                    where: {
+                        provider_providerAccountId: {
+                            provider: 'github',
+                            providerAccountId
+                        }
+                    },
+                    update: {
+                        type: 'github_app',
+                        access_token: installation_id, // Store installation_id in access_token field for now
+                        scope: 'installation',
+                    },
+                    create: {
+                        userId: user.id,
+                        type: 'github_app',
+                        provider: 'github',
+                        providerAccountId,
+                        access_token: installation_id,
+                        scope: 'installation',
+                    }
+                });
+                
+                res.json({ success: true, message: 'GitHub App installed successfully' });
+                return;
+            }
             
             const tokenRes = await fetch('https://github.com/login/oauth/access_token', {
                 method: 'POST',
