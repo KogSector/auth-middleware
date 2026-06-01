@@ -647,7 +647,7 @@ authRouter.get('/connections', requireAuth, async (req: AuthenticatedRequest, re
 
         const data = connections.map(c => ({
             id: c.providerAccountId,
-            platform: c.provider === 'google' ? 'google_drive' : (c.provider === 'windowslive' ? 'onedrive' : c.provider),
+            platform: c.provider === 'google' ? 'google_drive' : (['windowslive', 'waad', 'microsoft', 'onedrive'].includes(c.provider) ? 'onedrive' : c.provider),
             type: c.type,
             scope: c.scope,
             username: null,
@@ -1423,14 +1423,14 @@ authRouter.delete('/connections/:provider', requireAuth, async (req: Authenticat
             return;
         }
 
-        let targetProvider = provider;
-        if (provider === 'google_drive') targetProvider = 'google';
-        if (provider === 'onedrive') targetProvider = 'windowslive';
+        let targetProviders = [provider];
+        if (provider === 'google_drive') targetProviders = ['google', 'google-oauth2'];
+        if (provider === 'onedrive') targetProviders = ['windowslive', 'waad', 'microsoft', 'onedrive'];
 
         await prisma.account.deleteMany({
             where: {
                 userId: user.id,
-                provider: targetProvider,
+                provider: { in: targetProviders },
             },
         });
 
@@ -1544,7 +1544,7 @@ authRouter.post('/connections/sync', requireAuth, async (req: AuthenticatedReque
             synced: results.length,
             connections: results.map(c => ({
                 id: c.providerAccountId,
-                platform: c.provider === 'google' ? 'google_drive' : (c.provider === 'windowslive' ? 'onedrive' : c.provider),
+                platform: c.provider === 'google' ? 'google_drive' : (['windowslive', 'waad', 'microsoft', 'onedrive'].includes(c.provider) ? 'onedrive' : c.provider),
                 is_active: true,
             })),
         });
