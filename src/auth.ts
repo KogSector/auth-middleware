@@ -867,6 +867,7 @@ authRouter.post('/oauth/exchange', requireAuth, async (req: AuthenticatedRequest
                     }
                 },
                 update: {
+                    userId: user.id,
                     type: 'oauth',
                     access_token: accessToken,
                     scope: tokenData.scope || 'repo',
