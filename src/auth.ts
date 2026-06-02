@@ -939,6 +939,7 @@ authRouter.post('/oauth/exchange', requireAuth, async (req: AuthenticatedRequest
                     }
                 },
                 update: {
+                    userId: user.id,
                     type: 'oauth',
                     access_token: accessToken,
                     refresh_token: refreshToken,
@@ -1011,6 +1012,7 @@ authRouter.post('/oauth/exchange', requireAuth, async (req: AuthenticatedRequest
                     }
                 },
                 update: {
+                    userId: user.id,
                     type: 'oauth',
                     access_token: accessToken,
                     refresh_token: refreshToken,
@@ -1072,6 +1074,7 @@ authRouter.post('/oauth/exchange', requireAuth, async (req: AuthenticatedRequest
                     }
                 },
                 update: {
+                    userId: user.id,
                     type: 'oauth',
                     access_token: accessToken,
                     scope: tokenData.scope || '',
@@ -1134,6 +1137,7 @@ authRouter.post('/oauth/exchange', requireAuth, async (req: AuthenticatedRequest
                     }
                 },
                 update: {
+                    userId: user.id,
                     type: 'oauth',
                     access_token: accessToken,
                     scope: 'read_content',
@@ -1210,6 +1214,7 @@ authRouter.post('/oauth/exchange', requireAuth, async (req: AuthenticatedRequest
                     }
                 },
                 update: {
+                    userId: user.id,
                     type: 'oauth',
                     access_token: accessToken,
                     refresh_token: refreshToken,
@@ -1289,6 +1294,7 @@ authRouter.post('/oauth/exchange', requireAuth, async (req: AuthenticatedRequest
                     }
                 },
                 update: {
+                    userId: user.id,
                     type: 'oauth',
                     access_token: accessToken,
                     refresh_token: refreshToken,
@@ -1327,6 +1333,7 @@ authRouter.post('/oauth/exchange', requireAuth, async (req: AuthenticatedRequest
                     }
                 },
                 update: {
+                    userId: user.id,
                     type: 'api_key',
                     access_token: customToken,
                     scope: metadata?.scope || '',
