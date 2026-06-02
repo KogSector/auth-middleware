@@ -855,10 +855,7 @@ authRouter.post('/oauth/exchange', requireAuth, async (req: AuthenticatedRequest
                 }
             }
 
-            if (!githubEmail || githubEmail.toLowerCase() !== user.email?.toLowerCase()) {
-                res.status(400).json({ error: `Connection failed: The GitHub account email (${githubEmail || 'unknown'}) does not match your application email (${user.email}).` });
-                return;
-            }
+            // Email match check removed to allow connecting accounts with different emails
 
             const providerAccountId = String(userData.id);
             
@@ -929,10 +926,7 @@ authRouter.post('/oauth/exchange', requireAuth, async (req: AuthenticatedRequest
             const userData = await userRes.json();
             
             let gitlabEmail = userData.email;
-            if (!gitlabEmail || gitlabEmail.toLowerCase() !== user.email?.toLowerCase()) {
-                res.status(400).json({ error: `Connection failed: The GitLab account email (${gitlabEmail || 'unknown'}) does not match your application email (${user.email}).` });
-                return;
-            }
+            // Email match check removed to allow connecting accounts with different emails
 
             const providerAccountId = String(userData.id);
             
@@ -1202,10 +1196,7 @@ authRouter.post('/oauth/exchange', requireAuth, async (req: AuthenticatedRequest
                 logger.warn('[AUTH-OAUTH-EXCHANGE] Could not fetch Atlassian profile', { error: e });
             }
 
-            if (atlassianEmail.toLowerCase() !== user.email?.toLowerCase()) {
-                res.status(400).json({ error: `Connection failed: The Atlassian account email (${atlassianEmail}) does not match your application email (${user.email}).` });
-                return;
-            }
+            // Email match check removed to allow connecting accounts with different emails
 
             // Store as the specific provider name (jira or confluence) so the UI shows correctly
             const storedProvider = provider === 'atlassian' ? 'jira' : provider;
@@ -1285,10 +1276,7 @@ authRouter.post('/oauth/exchange', requireAuth, async (req: AuthenticatedRequest
                 logger.warn('[AUTH-OAUTH-EXCHANGE] Could not fetch Microsoft profile', { error: e });
             }
 
-            if (msEmail.toLowerCase() !== user.email?.toLowerCase()) {
-                res.status(400).json({ error: `Connection failed: The Microsoft account email (${msEmail}) does not match your application email (${user.email}).` });
-                return;
-            }
+            // Email match check removed to allow connecting accounts with different emails
 
             const storedProvider = provider === 'onedrive' ? 'onedrive' : 'windowslive';
 
