@@ -833,6 +833,33 @@ authRouter.post('/oauth/exchange', requireAuth, async (req: AuthenticatedRequest
             });
             
             const userData = await userRes.json();
+            
+            let githubEmail = userData.email;
+            if (!githubEmail) {
+                try {
+                    const emailsRes = await fetch('https://api.github.com/user/emails', {
+                        headers: {
+                            'Authorization': `Bearer ${accessToken}`,
+                            'Accept': 'application/vnd.github.v3+json'
+                        }
+                    });
+                    if (emailsRes.ok) {
+                        const emailsData = await emailsRes.json();
+                        const primaryEmailObj = Array.isArray(emailsData) ? emailsData.find((e: any) => e.primary) : null;
+                        if (primaryEmailObj) {
+                            githubEmail = primaryEmailObj.email;
+                        }
+                    }
+                } catch(e) {
+                    logger.warn('[AUTH-OAUTH-EXCHANGE] Could not fetch GitHub emails', { error: e });
+                }
+            }
+
+            if (!githubEmail || githubEmail.toLowerCase() !== user.email?.toLowerCase()) {
+                res.status(400).json({ error: `Connection failed: The GitHub account email (${githubEmail || 'unknown'}) does not match your application email (${user.email}).` });
+                return;
+            }
+
             const providerAccountId = String(userData.id);
             
             await prisma.account.upsert({
@@ -900,6 +927,13 @@ authRouter.post('/oauth/exchange', requireAuth, async (req: AuthenticatedRequest
             });
             
             const userData = await userRes.json();
+            
+            let gitlabEmail = userData.email;
+            if (!gitlabEmail || gitlabEmail.toLowerCase() !== user.email?.toLowerCase()) {
+                res.status(400).json({ error: `Connection failed: The GitLab account email (${gitlabEmail || 'unknown'}) does not match your application email (${user.email}).` });
+                return;
+            }
+
             const providerAccountId = String(userData.id);
             
             await prisma.account.upsert({
@@ -1156,14 +1190,21 @@ authRouter.post('/oauth/exchange', requireAuth, async (req: AuthenticatedRequest
 
             // Get user profile from Atlassian
             let providerAccountId = 'unknown';
+            let atlassianEmail = 'unknown';
             try {
                 const profileRes = await fetch('https://api.atlassian.com/me', {
                     headers: { 'Authorization': `Bearer ${accessToken}` },
                 });
                 const profileData = await profileRes.json();
+                atlassianEmail = profileData.email || 'unknown';
                 providerAccountId = profileData.account_id || 'unknown';
             } catch (e) {
                 logger.warn('[AUTH-OAUTH-EXCHANGE] Could not fetch Atlassian profile', { error: e });
+            }
+
+            if (atlassianEmail.toLowerCase() !== user.email?.toLowerCase()) {
+                res.status(400).json({ error: `Connection failed: The Atlassian account email (${atlassianEmail}) does not match your application email (${user.email}).` });
+                return;
             }
 
             // Store as the specific provider name (jira or confluence) so the UI shows correctly
@@ -1232,14 +1273,21 @@ authRouter.post('/oauth/exchange', requireAuth, async (req: AuthenticatedRequest
 
             // Get user profile from Microsoft Graph
             let providerAccountId = 'unknown';
+            let msEmail = 'unknown';
             try {
                 const profileRes = await fetch('https://graph.microsoft.com/v1.0/me', {
                     headers: { 'Authorization': `Bearer ${accessToken}` },
                 });
                 const profileData = await profileRes.json();
+                msEmail = profileData.mail || profileData.userPrincipalName || 'unknown';
                 providerAccountId = profileData.id || 'unknown';
             } catch (e) {
                 logger.warn('[AUTH-OAUTH-EXCHANGE] Could not fetch Microsoft profile', { error: e });
+            }
+
+            if (msEmail.toLowerCase() !== user.email?.toLowerCase()) {
+                res.status(400).json({ error: `Connection failed: The Microsoft account email (${msEmail}) does not match your application email (${user.email}).` });
+                return;
             }
 
             const storedProvider = provider === 'onedrive' ? 'onedrive' : 'windowslive';
