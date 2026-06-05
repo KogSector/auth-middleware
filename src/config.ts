@@ -16,10 +16,8 @@ interface Auth0Config {
     managementDomain?: string;
 }
 
-// Load .env.map first (non-sensitive defaults)
-dotenv.config({ path: '.env.map' });
-// Then load .env.secret (sensitive values that override defaults)
-dotenv.config({ path: '.env.secret' });
+// Load .env (combined config)
+dotenv.config({ path: '.env' });
 
 
 
