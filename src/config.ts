@@ -16,11 +16,10 @@ interface Auth0Config {
     managementDomain?: string;
 }
 
-// Load .env (combined config)
-dotenv.config({ path: '.env' });
-
-
-
+// Load .env.map first (non-sensitive defaults)
+dotenv.config({ path: '.env.map' });
+// Then load .env.secret (sensitive values that override defaults)
+dotenv.config({ path: '.env.secret' });
 
 interface OAuthProviderConfig {
     clientId: string;
