@@ -7,7 +7,7 @@ WORKDIR /app
 RUN apt-get update && apt-get install -y openssl && rm -rf /var/lib/apt/lists/*
 
 # Copy shared library first
-COPY shared-middleware/typescript/confuse-common ./shared-middleware/typescript/confuse-common
+COPY confuse-common/typescript ./confuse-common/typescript
 
 # Set workdir to auth-middleware
 WORKDIR /app/auth-middleware
@@ -48,7 +48,7 @@ RUN chown -R node:node /app
 USER node
 
 # Copy shared library (node_modules might symlink to it)
-COPY --chown=node:node --from=builder /app/shared-middleware /app/shared-middleware
+COPY --chown=node:node --from=builder /app/confuse-common /app/confuse-common
 
 # Copy pruned node_modules
 COPY --chown=node:node --from=builder /app/auth-middleware/node_modules ./node_modules

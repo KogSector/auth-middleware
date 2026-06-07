@@ -19,7 +19,7 @@
         "@grpc/grpc-js": "^1.14.3",
         "@grpc/proto-loader": "^0.8.0",
         "@prisma/client": "^5.7.1",
-        "confuse-common": "file:../shared-middleware/typescript/confuse-common",
+        "confuse-common": "file:../confuse-common/typescript",
         "cors": "^2.8.5",
         "dotenv": "^16.3.1",
         "express": "^4.18.2",
