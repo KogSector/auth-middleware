@@ -16,10 +16,12 @@ interface Auth0Config {
     managementDomain?: string;
 }
 
-// Load .env.map first (non-sensitive defaults)
-dotenv.config({ path: '.env.map' });
-// Then load .env.secret (sensitive values that override defaults)
-dotenv.config({ path: '.env.secret' });
+import path from 'path';
+
+// Load root .env first (non-sensitive defaults)
+dotenv.config({ path: path.resolve(process.cwd(), '../.env') });
+// Then load root .env.secret (sensitive values that override defaults)
+dotenv.config({ path: path.resolve(process.cwd(), '../.env.secret') });
 
 interface OAuthProviderConfig {
     clientId: string;
@@ -63,7 +65,7 @@ function requireEnv(name: string): string {
 
 export const config: Config = {
     // Server
-    port: parseInt(process.env.APP_PORT || '3010', 10),
+    port: parseInt(process.env.AUTH_MIDDLEWARE_PORT || '3010', 10),
     nodeEnv: process.env.NODE_ENV || 'development',
 
     // Auth0 (required — OAuth via Google or Microsoft)
