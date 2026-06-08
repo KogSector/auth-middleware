@@ -6,12 +6,7 @@ WORKDIR /app
 # Install OpenSSL for Prisma
 RUN apt-get update && apt-get install -y openssl && rm -rf /var/lib/apt/lists/*
 
-# Clone shared library from GitHub repository
-RUN apt-get update && apt-get install -y git && \
-    git clone https://github.com/KogSector/confuse-common.git /tmp/confuse-common && \
-    cp -r /tmp/confuse-common/typescript ./confuse-common-typescript && \
-    rm -rf /tmp/confuse-common && \
-    apt-get remove -y git && apt-get autoremove -y && rm -rf /var/lib/apt/lists/*
+
 
 # Set workdir to auth-middleware
 WORKDIR /app/auth-middleware
@@ -51,8 +46,7 @@ RUN chown -R node:node /app
 # Switch to the non-root user
 USER node
 
-# Copy shared library (node_modules might symlink to it)
-COPY --chown=node:node --from=builder /app/confuse-common-typescript /app/confuse-common-typescript
+
 
 # Copy pruned node_modules
 COPY --chown=node:node --from=builder /app/auth-middleware/node_modules ./node_modules
