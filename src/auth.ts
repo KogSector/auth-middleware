@@ -682,6 +682,7 @@ authRouter.get('/oauth/url', async (req: Request, res: Response) => {
         if (provider === 'github') {
             const clientId = config.github.clientId;
             const redirectUri = config.github.redirectUri;
+            if (!clientId || !redirectUri) return void res.status(400).json({ error: 'GitHub OAuth not configured' });
 
             res.json({
                 url: `https://github.com/login/oauth/authorize?client_id=${clientId}&redirect_uri=${encodeURIComponent(redirectUri)}&state=${state}&scope=repo,read:user`,
@@ -691,6 +692,7 @@ authRouter.get('/oauth/url', async (req: Request, res: Response) => {
         } else if (provider === 'gitlab') {
             const clientId = config.gitlab.clientId;
             const redirectUri = config.gitlab.redirectUri;
+            if (!clientId || !redirectUri) return void res.status(400).json({ error: 'GitLab OAuth not configured' });
             res.json({
                 url: `https://gitlab.com/oauth/authorize?client_id=${clientId}&redirect_uri=${encodeURIComponent(redirectUri)}&response_type=code&state=${state}&scope=read_api%20read_repository`,
                 provider: 'gitlab',
@@ -699,6 +701,7 @@ authRouter.get('/oauth/url', async (req: Request, res: Response) => {
         } else if (provider === 'bitbucket') {
             const clientId = config.bitbucket.clientId;
             const redirectUri = config.bitbucket.redirectUri;
+            if (!clientId || !redirectUri) return void res.status(400).json({ error: 'Bitbucket OAuth not configured' });
             res.json({
                 url: `https://bitbucket.org/site/oauth2/authorize?client_id=${clientId}&redirect_uri=${encodeURIComponent(redirectUri)}&response_type=code&state=${state}`,
                 provider: 'bitbucket',
@@ -707,7 +710,7 @@ authRouter.get('/oauth/url', async (req: Request, res: Response) => {
         } else if (provider === 'slack') {
             const clientId = config.slack.clientId;
             const redirectUri = config.slack.redirectUri;
-            if (!clientId) {
+            if (!clientId || !redirectUri) {
                 res.status(400).json({ error: 'Slack OAuth is not configured. Set SLACK_CLIENT_ID.' });
                 return;
             }
@@ -720,7 +723,7 @@ authRouter.get('/oauth/url', async (req: Request, res: Response) => {
         } else if (provider === 'notion') {
             const clientId = config.notion.clientId;
             const redirectUri = config.notion.redirectUri;
-            if (!clientId) {
+            if (!clientId || !redirectUri) {
                 res.status(400).json({ error: 'Notion OAuth is not configured. Set NOTION_CLIENT_ID.' });
                 return;
             }
@@ -736,7 +739,7 @@ authRouter.get('/oauth/url', async (req: Request, res: Response) => {
         } else if (provider === 'jira' || provider === 'confluence' || provider === 'atlassian') {
             const clientId = config.atlassian.clientId;
             const redirectUri = config.atlassian.redirectUri;
-            if (!clientId) {
+            if (!clientId || !redirectUri) {
                 res.status(400).json({ error: 'Atlassian OAuth is not configured. Set ATLASSIAN_CLIENT_ID.' });
                 return;
             }
@@ -757,7 +760,7 @@ authRouter.get('/oauth/url', async (req: Request, res: Response) => {
             const clientId = config.microsoft.clientId;
             const tenantId = config.microsoft.tenantId || 'consumers';
             const redirectUri = config.microsoft.redirectUri;
-            if (!clientId) {
+            if (!clientId || !redirectUri) {
                 res.status(400).json({ error: 'Microsoft OAuth is not configured. Set MICROSOFT_CLIENT_ID.' });
                 return;
             }
@@ -800,6 +803,7 @@ authRouter.post('/oauth/exchange', requireAuth, async (req: AuthenticatedRequest
         if (provider === 'github') {
             const clientId = config.github.clientId;
             const clientSecret = config.github.clientSecret;
+            if (!clientId || !clientSecret) return void res.status(400).json({ error: 'GitHub not configured' });
 
             const tokenRes = await fetch('https://github.com/login/oauth/access_token', {
                 method: 'POST',
@@ -888,6 +892,7 @@ authRouter.post('/oauth/exchange', requireAuth, async (req: AuthenticatedRequest
             const clientId = config.gitlab.clientId;
             const clientSecret = config.gitlab.clientSecret;
             const redirectUri = config.gitlab.redirectUri;
+            if (!clientId || !clientSecret || !redirectUri) return void res.status(400).json({ error: 'GitLab not configured' });
             
             const tokenRes = await fetch('https://gitlab.com/oauth/token', {
                 method: 'POST',
@@ -964,6 +969,7 @@ authRouter.post('/oauth/exchange', requireAuth, async (req: AuthenticatedRequest
             const clientId = config.bitbucket.clientId;
             const clientSecret = config.bitbucket.clientSecret;
             const redirectUri = config.bitbucket.redirectUri;
+            if (!clientId || !clientSecret || !redirectUri) return void res.status(400).json({ error: 'Bitbucket not configured' });
             
             const credentials = Buffer.from(`${clientId}:${clientSecret}`).toString('base64');
             
@@ -1038,7 +1044,7 @@ authRouter.post('/oauth/exchange', requireAuth, async (req: AuthenticatedRequest
             const clientSecret = config.slack.clientSecret;
             const redirectUri = config.slack.redirectUri;
 
-            if (!clientId || !clientSecret) {
+            if (!clientId || !clientSecret || !redirectUri) {
                 res.status(400).json({ error: 'Slack OAuth is not configured. Set SLACK_CLIENT_ID and SLACK_CLIENT_SECRET env vars.' });
                 return;
             }
@@ -1096,7 +1102,7 @@ authRouter.post('/oauth/exchange', requireAuth, async (req: AuthenticatedRequest
             const clientSecret = config.notion.clientSecret;
             const redirectUri = config.notion.redirectUri;
 
-            if (!clientId || !clientSecret) {
+            if (!clientId || !clientSecret || !redirectUri) {
                 res.status(400).json({ error: 'Notion OAuth is not configured. Set NOTION_CLIENT_ID and NOTION_CLIENT_SECRET env vars.' });
                 return;
             }
@@ -1159,7 +1165,7 @@ authRouter.post('/oauth/exchange', requireAuth, async (req: AuthenticatedRequest
             const clientSecret = config.atlassian.clientSecret;
             const redirectUri = config.atlassian.redirectUri;
 
-            if (!clientId || !clientSecret) {
+            if (!clientId || !clientSecret || !redirectUri) {
                 res.status(400).json({ error: 'Atlassian OAuth is not configured. Set ATLASSIAN_CLIENT_ID and ATLASSIAN_CLIENT_SECRET env vars.' });
                 return;
             }
@@ -1239,7 +1245,7 @@ authRouter.post('/oauth/exchange', requireAuth, async (req: AuthenticatedRequest
             const tenantId = config.microsoft.tenantId || 'consumers';
             const redirectUri = config.microsoft.redirectUri;
 
-            if (!clientId || !clientSecret) {
+            if (!clientId || !clientSecret || !redirectUri) {
                 res.status(400).json({ error: 'Microsoft OAuth is not configured. Set MICROSOFT_CLIENT_ID and MICROSOFT_CLIENT_SECRET env vars.' });
                 return;
             }
@@ -1636,8 +1642,8 @@ export async function refreshTokenIfNeeded(account: any, provider: string): Prom
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
-                        client_id: config.gitlab.clientId,
-                        client_secret: config.gitlab.clientSecret,
+                        client_id: config.gitlab.clientId || '',
+                        client_secret: config.gitlab.clientSecret || '',
                         refresh_token: account.refresh_token,
                         grant_type: 'refresh_token'
                     })
@@ -1648,8 +1654,8 @@ export async function refreshTokenIfNeeded(account: any, provider: string): Prom
                     method: 'POST',
                     headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
                     body: new URLSearchParams({
-                        client_id: config.microsoft.clientId,
-                        client_secret: config.microsoft.clientSecret,
+                        client_id: config.microsoft.clientId || '',
+                        client_secret: config.microsoft.clientSecret || '',
                         refresh_token: account.refresh_token,
                         grant_type: 'refresh_token'
                     }).toString()
