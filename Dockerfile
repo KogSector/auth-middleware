@@ -1,5 +1,5 @@
 # Build stage - compile TypeScript
-FROM node:24-slim AS builder
+FROM node:22-slim AS builder
 
 WORKDIR /app
 
@@ -33,7 +33,7 @@ RUN npm run build
 RUN npm prune --omit=dev 2>/dev/null || true
 
 # Production stage
-FROM node:24-slim
+FROM node:22-slim
 
 # Install OpenSSL (for Prisma), dumb-init (proper signal handling), and wget (health checks)
 RUN apt-get update && apt-get install -y openssl dumb-init wget && rm -rf /var/lib/apt/lists/*
