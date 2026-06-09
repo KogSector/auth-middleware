@@ -10,7 +10,7 @@ interface Auth0Config {
     domain: string;
     issuer: string;
     audience: string;
-    jwksUri: string;
+    jwksUri?: string;
     clientId?: string;
     clientSecret?: string;
     managementDomain?: string;
@@ -24,9 +24,9 @@ dotenv.config({ path: path.resolve(process.cwd(), '.env.map') });
 dotenv.config({ path: path.resolve(process.cwd(), '.env.secret') });
 
 interface OAuthProviderConfig {
-    clientId: string;
-    clientSecret: string;
-    redirectUri: string;
+    clientId?: string;
+    clientSecret?: string;
+    redirectUri?: string;
 }
 
 interface Config {
@@ -50,7 +50,7 @@ interface Config {
     atlassian: OAuthProviderConfig; // Jira + Confluence share a single Atlassian OAuth app
     gitlab: OAuthProviderConfig;
     bitbucket: OAuthProviderConfig;
-    microsoft: OAuthProviderConfig & { tenantId: string };
+    microsoft: OAuthProviderConfig & { tenantId?: string };
 }
 
 function requireEnv(name: string): string {
@@ -61,88 +61,82 @@ function requireEnv(name: string): string {
     return value;
 }
 
-// Note: loading key files is not currently used; keep helper removed to avoid lint warnings.
-
 export const config: Config = {
     // Server
-    port: parseInt(process.env.AUTH_MIDDLEWARE_PORT || '3010', 10),
-    nodeEnv: process.env.NODE_ENV || 'development',
+    port: parseInt(requireEnv('AUTH_MIDDLEWARE_PORT'), 10),
+    nodeEnv: requireEnv('NODE_ENV'),
 
     // Auth0 (required — OAuth via Google or Microsoft)
     auth0: {
-        domain: process.env.AUTH0_DOMAIN || 'dev-placeholder.auth0.com',
-        issuer: process.env.AUTH0_ISSUER || 'https://dev-placeholder.auth0.com/',
-        audience: process.env.AUTH0_AUDIENCE || 'https://api.confuse.dev',
-        jwksUri: process.env.AUTH0_JWKS_URI ||
-            `https://${process.env.AUTH0_DOMAIN || 'dev-placeholder.auth0.com'}/.well-known/jwks.json`,
+        domain: requireEnv('AUTH0_DOMAIN'),
+        issuer: requireEnv('AUTH0_ISSUER'),
+        audience: requireEnv('AUTH0_AUDIENCE'),
+        jwksUri: process.env.AUTH0_JWKS_URI || `https://${requireEnv('AUTH0_DOMAIN')}/.well-known/jwks.json`,
         clientId: process.env.AUTH0_CLIENT_ID,
         clientSecret: process.env.AUTH0_CLIENT_SECRET,
         managementDomain: process.env.AUTH0_MANAGEMENT_DOMAIN || process.env.AUTH0_DOMAIN,
     },
 
-    // ConFuse JWT
-
-
     // Token cache TTL
-    tokenCacheTtlSeconds: parseInt(process.env.TOKEN_CACHE_TTL_SECONDS || '900', 10), // 15 minutes
+    tokenCacheTtlSeconds: parseInt(requireEnv('TOKEN_CACHE_TTL_SECONDS'), 10),
 
     // Database
     databaseUrl: requireEnv('DATABASE_URL'),
 
     // CORS
-    corsOrigins: (process.env.CORS_ORIGINS || 'http://localhost:3000')
+    corsOrigins: requireEnv('CORS_ORIGINS')
         .split(',')
         .map(s => s.trim()),
 
     // Feature Toggle Service
-    featureToggleServiceUrl: process.env.FEATURE_TOGGLE_SERVICE_URL || 'http://localhost:3099',
+    featureToggleServiceUrl: requireEnv('FEATURE_TOGGLE_SERVICE_URL'),
 
     // Frontend URL for OAuth callbacks
-    frontendUrl: process.env.FRONTEND_URL || 'http://localhost:3000',
+    frontendUrl: requireEnv('FRONTEND_URL'),
 
     // gRPC Server Port
-    grpcPort: parseInt(process.env.GRPC_PORT || '50058', 10),
+    grpcPort: parseInt(requireEnv('GRPC_PORT'), 10),
 
     // Internal API Key
-    internalApiKey: process.env.INTERNAL_API_KEY || 'default-internal-key',
+    internalApiKey: requireEnv('INTERNAL_API_KEY'),
 
-    redisUrl: process.env.REDIS_URL || 'redis://localhost:6379',
+    redisUrl: requireEnv('REDIS_URL'),
 
     // Direct OAuth provider configs
     github: {
-        clientId: process.env.GITHUB_CLIENT_ID || 'Ov23liL3MQoIiV6bgA5w',
-        clientSecret: process.env.GITHUB_CLIENT_SECRET || '7e1dd12025ee7c7c43e296192cf16975587729e9',
-        redirectUri: process.env.GITHUB_REDIRECT_URI || `${process.env.FRONTEND_URL || 'http://localhost:3000'}/api/auth/oauth/callback`,
+        clientId: process.env.GITHUB_CLIENT_ID,
+        clientSecret: process.env.GITHUB_CLIENT_SECRET,
+        redirectUri: process.env.GITHUB_REDIRECT_URI,
     },
     slack: {
-        clientId: process.env.SLACK_CLIENT_ID || '',
-        clientSecret: process.env.SLACK_CLIENT_SECRET || '',
-        redirectUri: process.env.SLACK_REDIRECT_URI || `${process.env.FRONTEND_URL || 'http://localhost:3000'}/api/auth/oauth/callback?provider=slack`,
+        clientId: process.env.SLACK_CLIENT_ID,
+        clientSecret: process.env.SLACK_CLIENT_SECRET,
+        redirectUri: process.env.SLACK_REDIRECT_URI,
     },
     notion: {
-        clientId: process.env.NOTION_CLIENT_ID || '',
-        clientSecret: process.env.NOTION_CLIENT_SECRET || '',
-        redirectUri: process.env.NOTION_REDIRECT_URI || `${process.env.FRONTEND_URL || 'http://localhost:3000'}/api/auth/oauth/callback?provider=notion`,
+        clientId: process.env.NOTION_CLIENT_ID,
+        clientSecret: process.env.NOTION_CLIENT_SECRET,
+        redirectUri: process.env.NOTION_REDIRECT_URI,
     },
     atlassian: {
-        clientId: process.env.ATLASSIAN_CLIENT_ID || '',
-        clientSecret: process.env.ATLASSIAN_CLIENT_SECRET || '',
-        redirectUri: process.env.ATLASSIAN_REDIRECT_URI || `${process.env.FRONTEND_URL || 'http://localhost:3000'}/api/auth/oauth/callback?provider=atlassian`,
+        clientId: process.env.ATLASSIAN_CLIENT_ID,
+        clientSecret: process.env.ATLASSIAN_CLIENT_SECRET,
+        redirectUri: process.env.ATLASSIAN_REDIRECT_URI,
     },
     gitlab: {
-        clientId: process.env.GITLAB_CLIENT_ID || '',
-        clientSecret: process.env.GITLAB_CLIENT_SECRET || '',
-        redirectUri: process.env.GITLAB_REDIRECT_URI || `${process.env.FRONTEND_URL || 'http://localhost:3000'}/api/auth/oauth/callback`,
+        clientId: process.env.GITLAB_CLIENT_ID,
+        clientSecret: process.env.GITLAB_CLIENT_SECRET,
+        redirectUri: process.env.GITLAB_REDIRECT_URI,
     },
     bitbucket: {
-        clientId: process.env.BITBUCKET_CLIENT_ID || '',
-        clientSecret: process.env.BITBUCKET_CLIENT_SECRET || '',
-        redirectUri: process.env.BITBUCKET_REDIRECT_URI || `${process.env.FRONTEND_URL || 'http://localhost:3000'}/api/auth/oauth/callback`,
+        clientId: process.env.BITBUCKET_CLIENT_ID,
+        clientSecret: process.env.BITBUCKET_CLIENT_SECRET,
+        redirectUri: process.env.BITBUCKET_REDIRECT_URI,
     },
     microsoft: {
-        clientId: process.env.MICROSOFT_CLIENT_ID || '',
-        clientSecret: process.env.MICROSOFT_CLIENT_SECRET || '',
-        tenantId: process.env.MICROSOFT_TENANT_ID || 'consumers',
-        redirectUri: process.env.MICROSOFT_REDIRECT_URI || `${process.env.FRONTEND_URL || 'http://localhost:3000'}/api/auth/oauth/callback`,
+        clientId: process.env.MICROSOFT_CLIENT_ID,
+        clientSecret: process.env.MICROSOFT_CLIENT_SECRET,
+        tenantId: process.env.MICROSOFT_TENANT_ID,
+        redirectUri: process.env.MICROSOFT_REDIRECT_URI,
     },
 };
