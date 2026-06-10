@@ -765,7 +765,7 @@ authRouter.get('/oauth/url', async (req: Request, res: Response) => {
                 return;
             }
             const scopes = 'https://graph.microsoft.com/Files.Read.All https://graph.microsoft.com/Sites.Read.All offline_access https://graph.microsoft.com/User.Read';
-            let msUrl = `https://login.microsoftonline.com/${tenantId}/oauth2/v2.0/authorize?client_id=${clientId}&response_type=code&scope=${encodeURIComponent(scopes)}&redirect_uri=${encodeURIComponent(redirectUri)}&state=${state}&response_mode=query`;
+            let msUrl = `https://login.microsoftonline.com/${tenantId}/oauth2/v2.0/authorize?client_id=${clientId}&response_type=code&scope=${encodeURIComponent(scopes)}&redirect_uri=${encodeURIComponent(redirectUri)}&state=${state}&response_mode=query&prompt=select_account`;
             if (login_hint) {
                 msUrl += `&login_hint=${encodeURIComponent(login_hint as string)}`;
             }
@@ -1631,6 +1631,18 @@ export async function refreshTokenIfNeeded(account: any, provider: string): Prom
     } else if (provider === 'microsoft' || provider === 'onedrive' || provider === 'windowslive') {
         if (account.expires_at && account.expires_at < Date.now() / 1000 + 60) {
             needsRefresh = true;
+        } else {
+            // Test token validity
+            try {
+                const testRes = await fetch('https://graph.microsoft.com/v1.0/me', {
+                    headers: { 'Authorization': `Bearer ${finalAccessToken}` }
+                });
+                if (testRes.status === 401) {
+                    needsRefresh = true;
+                }
+            } catch (e) {
+                // Ignore network errors here, let the actual request fail if so
+            }
         }
     }
 
