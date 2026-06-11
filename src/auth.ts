@@ -1688,10 +1688,21 @@ export async function refreshTokenIfNeeded(account: any, provider: string): Prom
                     });
                 } else {
                     console.error(`${provider} token refresh failed:`, tokenData);
+                    // Clear the invalid tokens and throw an error to trigger re-auth
+                    await prisma.account.update({
+                        where: { id: account.id },
+                        data: {
+                            access_token: null,
+                            refresh_token: null,
+                            expires_at: null
+                        }
+                    });
+                    throw new Error(`Token refresh failed for ${provider}: ${tokenData.error_description || tokenData.error}`);
                 }
             }
         } catch (err) {
             console.error('Error refreshing token:', err);
+            throw err;
         }
     }
     return finalAccessToken;

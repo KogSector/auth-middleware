@@ -104,7 +104,7 @@ const getInternalToken = async (call: any, callback: any) => {
         });
 
         if (!account || !account.access_token) {
-            return callback(null, { success: false, error: 'Connection not found' });
+            return callback(null, { success: false, error: 'Connection invalid or expired. Please re-connect your account.' });
         }
 
         const finalToken = await refreshTokenIfNeeded(account, provider);
