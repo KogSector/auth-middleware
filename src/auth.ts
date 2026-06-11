@@ -764,8 +764,17 @@ authRouter.get('/oauth/url', async (req: Request, res: Response) => {
                 res.status(400).json({ error: 'Microsoft OAuth is not configured. Set MICROSOFT_CLIENT_ID.' });
                 return;
             }
+            const pkce = oAuthStateService.generatePKCE();
+            const codeVerifier = pkce.codeVerifier;
+            const codeChallenge = pkce.codeChallenge;
+            await oAuthStateService.storeState(state, {
+                provider,
+                redirectUri,
+                codeVerifier,
+            });
+
             const scopes = 'https://graph.microsoft.com/Files.Read.All https://graph.microsoft.com/Sites.Read.All offline_access https://graph.microsoft.com/User.Read';
-            let msUrl = `https://login.microsoftonline.com/${tenantId}/oauth2/v2.0/authorize?client_id=${clientId}&response_type=code&scope=${encodeURIComponent(scopes)}&redirect_uri=${encodeURIComponent(redirectUri)}&state=${state}&response_mode=query&prompt=select_account`;
+            let msUrl = `https://login.microsoftonline.com/${tenantId}/oauth2/v2.0/authorize?client_id=${clientId}&response_type=code&scope=${encodeURIComponent(scopes)}&redirect_uri=${encodeURIComponent(redirectUri)}&state=${state}&response_mode=query&prompt=select_account&code_challenge=${codeChallenge}&code_challenge_method=S256`;
             if (login_hint) {
                 msUrl += `&login_hint=${encodeURIComponent(login_hint as string)}`;
             }
@@ -1250,16 +1259,29 @@ authRouter.post('/oauth/exchange', requireAuth, async (req: AuthenticatedRequest
                 return;
             }
 
+            let codeVerifier: string | undefined;
+            if (req.body.state) {
+                const storedState = await oAuthStateService.validateState(req.body.state);
+                if (storedState && storedState.codeVerifier) {
+                    codeVerifier = storedState.codeVerifier;
+                }
+            }
+
+            const bodyParams = new URLSearchParams({
+                client_id: clientId,
+                client_secret: clientSecret,
+                code,
+                redirect_uri: redirectUri,
+                grant_type: 'authorization_code'
+            });
+            if (codeVerifier) {
+                bodyParams.append('code_verifier', codeVerifier);
+            }
+
             const tokenRes = await fetch(`https://login.microsoftonline.com/${tenantId}/oauth2/v2.0/token`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-                body: new URLSearchParams({
-                    client_id: clientId,
-                    client_secret: clientSecret,
-                    code,
-                    redirect_uri: redirectUri,
-                    grant_type: 'authorization_code'
-                }).toString(),
+                body: bodyParams.toString(),
             });
 
             const tokenData = await tokenRes.json();
