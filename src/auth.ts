@@ -773,7 +773,7 @@ authRouter.get('/oauth/url', async (req: Request, res: Response) => {
                 codeVerifier,
             });
 
-            const scopes = 'https://graph.microsoft.com/Files.Read.All https://graph.microsoft.com/Sites.Read.All offline_access https://graph.microsoft.com/User.Read';
+            const scopes = 'https://graph.microsoft.com/Files.Read.All offline_access https://graph.microsoft.com/User.Read';
             let msUrl = `https://login.microsoftonline.com/${tenantId}/oauth2/v2.0/authorize?client_id=${clientId}&response_type=code&scope=${encodeURIComponent(scopes)}&redirect_uri=${encodeURIComponent(redirectUri)}&state=${state}&response_mode=query&prompt=select_account&code_challenge=${codeChallenge}&code_challenge_method=S256`;
             if (login_hint) {
                 msUrl += `&login_hint=${encodeURIComponent(login_hint as string)}`;
@@ -1269,18 +1269,25 @@ authRouter.post('/oauth/exchange', requireAuth, async (req: AuthenticatedRequest
 
             const bodyParams = new URLSearchParams({
                 client_id: clientId,
-                client_secret: clientSecret,
                 code,
                 redirect_uri: redirectUri,
                 grant_type: 'authorization_code'
             });
+            
             if (codeVerifier) {
+                // Public clients using PKCE must NOT send a client_secret
                 bodyParams.append('code_verifier', codeVerifier);
+            } else {
+                // Confidential clients without PKCE must send a client_secret
+                bodyParams.append('client_secret', clientSecret);
             }
 
             const tokenRes = await fetch(`https://login.microsoftonline.com/${tenantId}/oauth2/v2.0/token`, {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+                headers: { 
+                    'Content-Type': 'application/x-www-form-urlencoded',
+                    'Origin': config.corsOrigins[0] || 'http://localhost:3000'
+                },
                 body: bodyParams.toString(),
             });
 
