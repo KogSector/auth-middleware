@@ -4,16 +4,16 @@ import * as grpc from '@grpc/grpc-js';
 import * as protoLoader from '@grpc/proto-loader';
 import path from 'path';
 import { fileURLToPath } from 'url';
-import { config } from './config.js';
-import { verifyAuth0Token, extractRoles, refreshTokenIfNeeded } from './auth.js';
-import { findById } from './services/user.js';
-import { logger } from './utils/logger.js';
-import { prisma } from './infra/db/client.js';
+import { config } from '../config.js';
+import { verifyAuth0Token, extractRoles, refreshTokenIfNeeded } from '../auth.js';
+import { findById } from '../services/user.js';
+import { logger } from '../utils/logger.js';
+import { prisma } from './db.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-const PROTO_PATH = path.join(__dirname, '../proto/auth.proto');
+const PROTO_PATH = path.join(__dirname, '../../proto/auth.proto');
 
 const packageDefinition = protoLoader.loadSync(PROTO_PATH, {
     keepCase: true,

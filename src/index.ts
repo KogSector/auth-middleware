@@ -13,7 +13,7 @@ import { healthRoutes, onboardingRoutes } from './routes/index.js';
 import { logger } from './utils/logger.js';
 import { rateLimitMiddleware, initRedis } from './middleware/rate-limiter.js';
 import { securityHeadersMiddleware } from './middleware/security-headers.js';
-import { startGrpcServer } from './grpc.js';
+import { startGrpcServer } from './infra/grpc.js';
 
 // Initialize Redis for rate limiting
 initRedis();

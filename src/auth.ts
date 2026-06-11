@@ -16,7 +16,7 @@ import { config } from './config.js';
 import { tokenCache } from './services/cache.js';
 import { findOrCreateByAuth0, findByAuth0Sub, findByEmail, toProfile } from './services/user.js';
 
-import prisma from './infra/db/client.js';
+import prisma from './infra/db.js';
 import type { AuthenticatedRequest, AuthExchangeResponse, TokenVerifyResponse, Auth0Claims } from './types/index.js';
 
 // ============================================================================

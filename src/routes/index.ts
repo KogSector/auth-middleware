@@ -4,7 +4,7 @@
  */
 
 import { Router, type Request, type Response } from 'express';
-import prisma from '../infra/db/client.js';
+import prisma from '../infra/db.js';
 import { requireAuth } from '../auth.js';
 import type { AuthenticatedRequest, Auth0Claims } from '../types/index.js';
 
