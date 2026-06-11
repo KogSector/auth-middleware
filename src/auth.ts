@@ -1152,8 +1152,8 @@ authRouter.post('/oauth/exchange', requireAuth, async (req: AuthenticatedRequest
             const tenantId = config.microsoft.tenantId || 'consumers';
             const redirectUri = config.microsoft.redirectUri;
 
-            if (!clientId || !clientSecret || !redirectUri) {
-                res.status(400).json({ error: 'Microsoft OAuth is not configured. Set MICROSOFT_CLIENT_ID and MICROSOFT_CLIENT_SECRET env vars.' });
+            if (!clientId || !redirectUri) {
+                res.status(400).json({ error: 'Microsoft OAuth is not configured. Set MICROSOFT_CLIENT_ID and MICROSOFT_REDIRECT_URI env vars.' });
                 return;
             }
 
@@ -1175,7 +1175,9 @@ authRouter.post('/oauth/exchange', requireAuth, async (req: AuthenticatedRequest
             if (codeVerifier) {
                 bodyParams.append('code_verifier', codeVerifier);
             }
-            if (clientSecret) {
+            
+            // Public clients (e.g. SPAs) using PKCE will throw AADSTS700025 if client_secret is provided
+            if (clientSecret && !codeVerifier) {
                 bodyParams.append('client_secret', clientSecret);
             }
 
