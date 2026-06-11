@@ -57,22 +57,9 @@ export interface Auth0Claims {
     [key: string]: unknown;
 }
 
-export interface Auth0UserInfo {
-    auth0Sub: string;
-    email: string;
-    name: string | null;
-    picture: string | null;
-}
 
 // Session types removed as session management is handled by Auth0
 
-export interface FeatureToggleResponse {
-    success: boolean;
-    data?: {
-        enabled: boolean;
-    };
-    error?: string;
-}
 
 // ============================================================================
 // Express Extensions
@@ -86,10 +73,6 @@ export interface AuthenticatedRequest extends Request {
 // API Response Types
 // ============================================================================
 
-export interface ApiError {
-    error: string;
-    message?: string;
-}
 
 export interface AuthExchangeResponse {
     user: UserProfile;
@@ -115,15 +98,4 @@ export interface CacheStats {
     capacity: number;
 }
 
-
-// ============================================================================
-// User Context (for propagation across services)
-// ============================================================================
-
-export interface UserContext {
-    userId: string;
-    email: string;
-    workspaceId: string;
-    roles: string[];
-}
 

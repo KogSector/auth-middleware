@@ -123,15 +123,6 @@ export async function findByEmail(email: string): Promise<User | null> {
     return user as User | null;
 }
 
-/**
- * Update last login timestamp
- */
-export async function updateLastLogin(userId: string): Promise<void> {
-    await prisma.user.update({
-        where: { id: userId },
-        data: { lastLoginAt: new Date() },
-    });
-}
 
 /**
  * Get user profile (safe for client)

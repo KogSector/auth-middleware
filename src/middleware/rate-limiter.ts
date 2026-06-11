@@ -209,9 +209,3 @@ export function rateLimitMiddleware() {
     };
 }
 
-export async function shutdownRedis(): Promise<void> {
-    if (redisClient) {
-        await redisClient.quit();
-        logger.info('[RATE-LIMIT] Redis disconnected');
-    }
-}

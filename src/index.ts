@@ -22,7 +22,6 @@ const app = express();
 
 // Security middleware
 logger.info('[AUTH-MIDDLEWARE] Setting up security middleware...');
-// @ts-ignore - Vercel TS compilation workaround for helmet types
 app.use(helmet());
 app.use(securityHeadersMiddleware());
 

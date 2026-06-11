@@ -15,9 +15,9 @@ import { logger } from './utils/logger.js';
 import { config } from './config.js';
 import { tokenCache } from './services/cache.js';
 import { findOrCreateByAuth0, findByAuth0Sub, findByEmail, toProfile } from './services/user.js';
-import { FeatureToggleClient } from './services/toggle.js';
+
 import prisma from './infra/db/client.js';
-import type { AuthenticatedRequest, AuthExchangeResponse, TokenVerifyResponse, Auth0Claims, Auth0UserInfo, CacheStats } from './types/index.js';
+import type { AuthenticatedRequest, AuthExchangeResponse, TokenVerifyResponse, Auth0Claims } from './types/index.js';
 
 // ============================================================================
 // OAUTH STATE MANAGEMENT (from services/oauth.ts)
@@ -203,17 +203,6 @@ export async function verifyAuth0Token(token: string): Promise<Auth0Claims> {
     }
 }
 
-/**
- * Extract user info from Auth0 claims
- */
-export function extractUserInfo(claims: Auth0Claims): Auth0UserInfo {
-    return {
-        auth0Sub: claims.sub,
-        email: claims.email || '',
-        name: claims.name || claims.email || null,
-        picture: claims.picture || null,
-    };
-}
 
 /**
  * Extract roles from Auth0 claims
@@ -303,19 +292,6 @@ export class Auth0ManagementClient {
     }
 }
 
-/**
- * Get token cache statistics
- */
-export function getTokenCacheStats(): CacheStats {
-    const stats = tokenCache.getStats();
-    return {
-        hits: stats.hits,
-        misses: stats.misses,
-        hitRate: stats.hitRate,
-        size: 0, // Not tracked in TokenCacheService
-        capacity: 0, // Not tracked in TokenCacheService
-    };
-}
 
 // ============================================================================
 // AUTHENTICATION MIDDLEWARE (from middleware/auth.ts)
@@ -366,60 +342,6 @@ export async function requireAuth(
     }
 }
 
-/**
- * Optional authentication - doesn't fail if no token
- */
-export async function optionalAuth(
-    req: Request,
-    res: ExpressResponse,
-    next: NextFunction
-): Promise<void> {
-    const token = extractBearerToken(req);
-
-    if (token) {
-        try {
-            const claims = await verifyAuth0Token(token);
-            (req as AuthenticatedRequest).user = claims;
-        } catch {
-            // Ignore errors for optional auth
-        }
-    }
-
-    next();
-}
-
-/**
- * Require specific roles
- */
-export function requireRoles(...requiredRoles: string[]) {
-    return (req: Request, res: ExpressResponse, next: NextFunction): void => {
-        const reqUser = (req as AuthenticatedRequest).user;
-        if (!reqUser) {
-            res.status(401).json({
-                error: 'Authentication required',
-            });
-            return;
-        }
-
-        const userRoles = reqUser.roles || [];
-        // DSA: O(1) Set.has() replaces O(n) Array.includes() for role membership checks.
-        // Converts user roles to a Set once, then each required role check is O(1).
-        const roleSet = new Set(userRoles);
-        const hasRole = requiredRoles.length === 0 ||
-            requiredRoles.some(role => roleSet.has(role));
-
-        if (!hasRole) {
-            res.status(403).json({
-                error: 'Insufficient permissions',
-                requiredRoles,
-                userRoles,
-            });
-            return;
-        }
-
-        next();
-    };
-}
 
 // ============================================================================
 // AUTHENTICATION ROUTES (from routes/auth.ts)
@@ -846,27 +768,7 @@ authRouter.post('/oauth/exchange', requireAuth, async (req: AuthenticatedRequest
             });
             
             const userData = await userRes.json();
-            
-            let githubEmail = userData.email;
-            if (!githubEmail) {
-                try {
-                    const emailsRes = await fetch('https://api.github.com/user/emails', {
-                        headers: {
-                            'Authorization': `Bearer ${accessToken}`,
-                            'Accept': 'application/vnd.github.v3+json'
-                        }
-                    });
-                    if (emailsRes.ok) {
-                        const emailsData = await emailsRes.json();
-                        const primaryEmailObj = Array.isArray(emailsData) ? emailsData.find((e: any) => e.primary) : null;
-                        if (primaryEmailObj) {
-                            githubEmail = primaryEmailObj.email;
-                        }
-                    }
-                } catch(e) {
-                    logger.warn('[AUTH-OAUTH-EXCHANGE] Could not fetch GitHub emails', { error: e });
-                }
-            }
+
 
             // Email match check removed to allow connecting accounts with different emails
 
@@ -939,8 +841,6 @@ authRouter.post('/oauth/exchange', requireAuth, async (req: AuthenticatedRequest
             });
             
             const userData = await userRes.json();
-            
-            let gitlabEmail = userData.email;
             // Email match check removed to allow connecting accounts with different emails
 
             const providerAccountId = String(userData.id);
@@ -1204,13 +1104,11 @@ authRouter.post('/oauth/exchange', requireAuth, async (req: AuthenticatedRequest
 
             // Get user profile from Atlassian
             let providerAccountId = 'unknown';
-            let atlassianEmail = 'unknown';
             try {
                 const profileRes = await fetch('https://api.atlassian.com/me', {
                     headers: { 'Authorization': `Bearer ${accessToken}` },
                 });
                 const profileData = await profileRes.json();
-                atlassianEmail = profileData.email || 'unknown';
                 providerAccountId = profileData.account_id || 'unknown';
             } catch (e) {
                 logger.warn('[AUTH-OAUTH-EXCHANGE] Could not fetch Atlassian profile', { error: e });
@@ -1275,10 +1173,9 @@ authRouter.post('/oauth/exchange', requireAuth, async (req: AuthenticatedRequest
             });
             
             if (codeVerifier) {
-                // Public clients using PKCE must NOT send a client_secret
                 bodyParams.append('code_verifier', codeVerifier);
-            } else {
-                // Confidential clients without PKCE must send a client_secret
+            }
+            if (clientSecret) {
                 bodyParams.append('client_secret', clientSecret);
             }
 
@@ -1305,13 +1202,11 @@ authRouter.post('/oauth/exchange', requireAuth, async (req: AuthenticatedRequest
 
             // Get user profile from Microsoft Graph
             let providerAccountId = 'unknown';
-            let msEmail = 'unknown';
             try {
                 const profileRes = await fetch('https://graph.microsoft.com/v1.0/me', {
                     headers: { 'Authorization': `Bearer ${accessToken}` },
                 });
                 const profileData = await profileRes.json();
-                msEmail = profileData.mail || profileData.userPrincipalName || 'unknown';
                 providerAccountId = profileData.id || 'unknown';
             } catch (e) {
                 logger.warn('[AUTH-OAUTH-EXCHANGE] Could not fetch Microsoft profile', { error: e });
@@ -1394,97 +1289,6 @@ authRouter.post('/oauth/exchange', requireAuth, async (req: AuthenticatedRequest
     }
 });
 
-/**
- * GET /auth/oauth/:provider/start
- * Securely start OAuth flow with State/PKCE
- */
-authRouter.get('/oauth/:provider/start', async (req: Request, res: Response) => {
-    try {
-        const { provider } = req.params;
-        const { redirect_uri, user_id, use_pkce } = req.query;
-
-        if (!provider || !redirect_uri) {
-            res.status(400).json({ error: 'Missing provider or redirect_uri' });
-            return;
-        }
-
-        const stateIdx = oAuthStateService.generateState();
-        let codeVerifier: string | undefined;
-        let codeChallenge: string | undefined;
-
-        if (use_pkce === 'true') {
-            const pkce = oAuthStateService.generatePKCE();
-            codeVerifier = pkce.codeVerifier;
-            codeChallenge = pkce.codeChallenge;
-        }
-
-        await oAuthStateService.storeState(stateIdx, {
-            provider,
-            userId: typeof user_id === 'string' ? user_id : undefined,
-            redirectUri: redirect_uri as string,
-            codeVerifier,
-        });
-
-        res.json({
-            success: true,
-            state: stateIdx,
-            code_challenge: codeChallenge,
-            message: 'OAuth state generated successfully'
-        });
-
-    } catch (error) {
-        logger.error('[AUTH-OAUTH-START] OAuth start error', { error });
-        res.status(500).json({ error: 'Internal server error' });
-    }
-});
-
-/**
- * GET /auth/oauth/:provider/callback
- * Validate OAuth callback state
- */
-authRouter.get('/oauth/:provider/callback', async (req: Request, res: Response) => {
-    try {
-        const { provider } = req.params;
-        const { state, error } = req.query;
-
-        if (error) {
-            res.status(400).json({ error: typeof error === 'string' ? error : 'OAuth error' });
-            return;
-        }
-
-        if (!state) {
-            res.status(400).json({ error: 'Missing state parameter' });
-            return;
-        }
-
-        const storedState = await oAuthStateService.validateState(state as string);
-
-        if (!storedState) {
-            res.status(400).json({ error: 'Invalid or expired state' });
-            return;
-        }
-
-        if (storedState.provider !== provider) {
-            res.status(400).json({ error: 'Provider mismatch' });
-            return;
-        }
-
-        await oAuthStateService.consumeState(state as string);
-
-        res.json({
-            success: true,
-            provider,
-            redirect_uri: storedState.redirectUri,
-            user_id: storedState.userId,
-            code_verifier: storedState.codeVerifier,
-            message: 'OAuth callback validated successfully'
-        });
-
-    } catch (error) {
-        logger.error('[AUTH-OAUTH-CALLBACK] OAuth callback error', { error });
-        res.status(500).json({ error: 'Internal server error' });
-    }
-});
 
 /**
  * DELETE /auth/connections/:provider
