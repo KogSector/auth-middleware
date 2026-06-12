@@ -6,24 +6,19 @@ WORKDIR /app
 # Install OpenSSL for Prisma
 RUN apt-get update && apt-get install -y openssl && rm -rf /var/lib/apt/lists/*
 
-
-
-# Set workdir to auth-middleware
-WORKDIR /app/auth-middleware
-
 # Copy package files
-COPY auth-middleware/package*.json ./
-COPY auth-middleware/tsconfig.json ./
+COPY package*.json ./
+COPY tsconfig.json ./
 
 # Install ALL dependencies (npm will install local paths correctly now)
 RUN npm install
 
 # Copy source files and proto
-COPY auth-middleware/src ./src/
-COPY proto ../proto/
+COPY src ./src/
+COPY proto ./proto/
 
 # Copy prisma schema and generate client
-COPY auth-middleware/prisma ./prisma/
+COPY prisma ./prisma/
 RUN npx prisma generate
 
 # Build TypeScript
@@ -38,7 +33,7 @@ FROM node:22-slim
 # Install OpenSSL (for Prisma), dumb-init (proper signal handling), and wget (health checks)
 RUN apt-get update && apt-get install -y openssl dumb-init wget && rm -rf /var/lib/apt/lists/*
 
-WORKDIR /app/auth-middleware
+WORKDIR /app
 
 # Set correct ownership for the non-root user
 RUN chown -R node:node /app
@@ -46,22 +41,20 @@ RUN chown -R node:node /app
 # Switch to the non-root user
 USER node
 
-
-
 # Copy pruned node_modules
-COPY --chown=node:node --from=builder /app/auth-middleware/node_modules ./node_modules
+COPY --chown=node:node --from=builder /app/node_modules ./node_modules
 
 # Copy Prisma schema and generated client
-COPY --chown=node:node --from=builder /app/auth-middleware/prisma ./prisma/
+COPY --chown=node:node --from=builder /app/prisma ./prisma/
 
 # Copy package.json for runtime
-COPY --chown=node:node --from=builder /app/auth-middleware/package.json ./
+COPY --chown=node:node --from=builder /app/package.json ./
 
 # Copy built JavaScript from builder
-COPY --chown=node:node --from=builder /app/auth-middleware/dist ./dist
+COPY --chown=node:node --from=builder /app/dist ./dist
 
 # Copy proto files
-COPY --chown=node:node --from=builder /app/proto /app/proto
+COPY --chown=node:node --from=builder /app/proto ./proto/
 
 # Create keys directory
 RUN mkdir -p keys
