@@ -102,7 +102,7 @@ Log prefixes:
 
 ## Feature Toggle Integration
 
-The auth-middleware integrates with feature-context-toggle for development features:
+The auth-middleware integrates with feature-toggle for development features:
 
 | Toggle | Effect |
 |--------|--------|
