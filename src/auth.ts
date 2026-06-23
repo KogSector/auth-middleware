@@ -695,7 +695,7 @@ authRouter.get('/oauth/url', async (req: Request, res: Response) => {
                 codeVerifier,
             });
 
-            const scopes = 'https://graph.microsoft.com/Files.Read.All offline_access https://graph.microsoft.com/User.Read';
+            const scopes = 'https://graph.microsoft.com/Files.Read https://graph.microsoft.com/Files.ReadWrite offline_access https://graph.microsoft.com/User.Read';
             let msUrl = `https://login.microsoftonline.com/${tenantId}/oauth2/v2.0/authorize?client_id=${clientId}&response_type=code&scope=${encodeURIComponent(scopes)}&redirect_uri=${encodeURIComponent(redirectUri)}&state=${state}&response_mode=query&prompt=select_account&code_challenge=${codeChallenge}&code_challenge_method=S256`;
             if (login_hint) {
                 msUrl += `&login_hint=${encodeURIComponent(login_hint as string)}`;
@@ -703,6 +703,27 @@ authRouter.get('/oauth/url', async (req: Request, res: Response) => {
             res.json({
                 url: msUrl,
                 provider: 'microsoft',
+            });
+
+        } else if (provider === 'dropbox') {
+            const clientId = config.dropbox.clientId;
+            const redirectUri = config.dropbox.redirectUri;
+            if (!clientId || !redirectUri) {
+                res.status(400).json({ error: 'Dropbox OAuth is not configured.' });
+                return;
+            }
+            const pkce = oAuthStateService.generatePKCE();
+            const codeVerifier = pkce.codeVerifier;
+            const codeChallenge = pkce.codeChallenge;
+            await oAuthStateService.storeState(state, {
+                provider,
+                redirectUri,
+                codeVerifier,
+            });
+
+            res.json({
+                url: `https://www.dropbox.com/oauth2/authorize?client_id=${clientId}&redirect_uri=${encodeURIComponent(redirectUri)}&response_type=code&state=${state}&code_challenge=${codeChallenge}&code_challenge_method=S256&token_access_type=offline`,
+                provider: 'dropbox',
             });
 
         } else {
@@ -1199,53 +1220,148 @@ authRouter.post('/oauth/exchange', requireAuth, async (req: AuthenticatedRequest
             }
 
             const accessToken = tokenData.access_token;
-            const refreshToken = tokenData.refresh_token || null;
-            const expiresIn = tokenData.expires_in;
 
-            // Get user profile from Microsoft Graph
-            let providerAccountId = 'unknown';
-            try {
-                const profileRes = await fetch('https://graph.microsoft.com/v1.0/me', {
-                    headers: { 'Authorization': `Bearer ${accessToken}` },
-                });
-                const profileData = await profileRes.json();
-                providerAccountId = profileData.id || 'unknown';
-            } catch (e) {
-                logger.warn('[AUTH-OAUTH-EXCHANGE] Could not fetch Microsoft profile', { error: e });
-            }
+            // Microsoft Graph /me
+            const userRes = await fetch('https://graph.microsoft.com/v1.0/me', {
+                headers: {
+                    'Authorization': `Bearer ${accessToken}`,
+                    'Accept': 'application/json'
+                }
+            });
 
-            // Email match check removed to allow connecting accounts with different emails
+            const userData = await userRes.json();
 
-            const storedProvider = provider === 'onedrive' ? 'onedrive' : 'windowslive';
+            const providerAccountId = String(userData.id);
 
             await prisma.account.upsert({
                 where: {
                     provider_providerAccountId: {
-                        provider: storedProvider,
-                        providerAccountId: String(providerAccountId),
+                        provider: 'onedrive',
+                        providerAccountId
                     }
                 },
                 update: {
                     userId: user.id,
                     type: 'oauth',
                     access_token: accessToken,
-                    refresh_token: refreshToken,
-                    expires_at: expiresIn ? Math.floor(Date.now() / 1000) + expiresIn : null,
-                    scope: tokenData.scope || '',
+                    refresh_token: tokenData.refresh_token,
+                    scope: tokenData.scope,
+                    expires_at: tokenData.expires_in ? Math.floor(Date.now() / 1000) + tokenData.expires_in : null,
                 },
                 create: {
                     userId: user.id,
                     type: 'oauth',
-                    provider: storedProvider,
-                    providerAccountId: String(providerAccountId),
+                    provider: 'onedrive',
+                    providerAccountId,
                     access_token: accessToken,
-                    refresh_token: refreshToken,
-                    expires_at: expiresIn ? Math.floor(Date.now() / 1000) + expiresIn : null,
-                    scope: tokenData.scope || '',
+                    refresh_token: tokenData.refresh_token,
+                    scope: tokenData.scope,
+                    expires_at: tokenData.expires_in ? Math.floor(Date.now() / 1000) + tokenData.expires_in : null,
                 }
             });
 
-            res.json({ success: true, message: `Microsoft connected successfully` });
+            res.json({ success: true, message: 'Microsoft connected successfully' });
+
+        } else if (provider === 'dropbox') {
+            const clientId = config.dropbox.clientId;
+            const clientSecret = config.dropbox.clientSecret;
+            const redirectUri = config.dropbox.redirectUri;
+
+            if (!clientId || !redirectUri) {
+                res.status(400).json({ error: 'Dropbox OAuth is not configured.' });
+                return;
+            }
+
+            let codeVerifier: string | undefined;
+            if (req.body.state) {
+                const storedState = await oAuthStateService.validateState(req.body.state);
+                if (storedState && storedState.codeVerifier) {
+                    codeVerifier = storedState.codeVerifier;
+                }
+            }
+
+            const bodyParams = new URLSearchParams({
+                client_id: clientId,
+                code,
+                redirect_uri: redirectUri,
+                grant_type: 'authorization_code'
+            });
+
+            if (codeVerifier) {
+                bodyParams.append('code_verifier', codeVerifier);
+            }
+
+            if (clientSecret && !codeVerifier) {
+                bodyParams.append('client_secret', clientSecret);
+            }
+
+            const tokenRes = await fetch('https://api.dropboxapi.com/oauth2/token', {
+                method: 'POST',
+                headers: { 
+                    'Content-Type': 'application/x-www-form-urlencoded',
+                },
+                body: bodyParams.toString(),
+            });
+
+            const tokenData = await tokenRes.json();
+
+            if (tokenData.error) {
+                logger.error('[AUTH-OAUTH-EXCHANGE] Dropbox token error', { error: tokenData.error });
+                res.status(400).json({ error: tokenData.error_description || tokenData.error });
+                return;
+            }
+
+            const accessToken = tokenData.access_token;
+
+            // Get Dropbox user info
+            const userRes = await fetch('https://api.dropboxapi.com/2/users/get_current_account', {
+                method: 'POST',
+                headers: {
+                    'Authorization': `Bearer ${accessToken}`,
+                    'Content-Type': 'application/json'
+                },
+                body: 'null'
+            });
+
+            const userData = await userRes.json();
+
+            if (userData.error) {
+                logger.error('[AUTH-OAUTH-EXCHANGE] Dropbox user error', { error: userData.error });
+                res.status(400).json({ error: 'Failed to get Dropbox user info' });
+                return;
+            }
+
+            const providerAccountId = String(userData.account_id);
+
+            await prisma.account.upsert({
+                where: {
+                    provider_providerAccountId: {
+                        provider: 'dropbox',
+                        providerAccountId
+                    }
+                },
+                update: {
+                    userId: user.id,
+                    type: 'oauth',
+                    access_token: accessToken,
+                    refresh_token: tokenData.refresh_token,
+                    scope: tokenData.scope,
+                    expires_at: tokenData.expires_in ? Math.floor(Date.now() / 1000) + tokenData.expires_in : null,
+                },
+                create: {
+                    userId: user.id,
+                    type: 'oauth',
+                    provider: 'dropbox',
+                    providerAccountId,
+                    access_token: accessToken,
+                    refresh_token: tokenData.refresh_token,
+                    scope: tokenData.scope,
+                    expires_at: tokenData.expires_in ? Math.floor(Date.now() / 1000) + tokenData.expires_in : null,
+                }
+            });
+
+            res.json({ success: true, message: 'Dropbox connected successfully' });
+
 
         } else if (provider === 'custom_apps') {
             // Custom apps use API key/token directly (no OAuth code exchange)

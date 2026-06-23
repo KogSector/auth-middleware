@@ -51,6 +51,7 @@ interface Config {
     gitlab: OAuthProviderConfig;
     bitbucket: OAuthProviderConfig;
     microsoft: OAuthProviderConfig & { tenantId?: string };
+    dropbox: OAuthProviderConfig;
 }
 
 function requireEnv(name: string): string {
@@ -138,5 +139,10 @@ export const config: Config = {
         clientSecret: process.env.MICROSOFT_CLIENT_SECRET,
         tenantId: process.env.MICROSOFT_TENANT_ID,
         redirectUri: process.env.MICROSOFT_REDIRECT_URI,
+    },
+    dropbox: {
+        clientId: process.env.DROPBOX_CLIENT_ID,
+        clientSecret: process.env.DROPBOX_CLIENT_SECRET,
+        redirectUri: process.env.DROPBOX_REDIRECT_URI,
     },
 };
