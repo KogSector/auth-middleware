@@ -544,6 +544,93 @@ authRouter.post('/verify', async (req: Request, res: Response) => {
 });
 
 /**
+ * POST /validate
+ * Legacy endpoint for HTTP fallback from other services
+ */
+authRouter.post('/validate', async (req: Request, res: Response) => {
+    try {
+        const token = extractBearerToken(req);
+        if (!token) {
+            res.status(401).json({ error: 'Missing token' });
+            return;
+        }
+        const claims = await verifyAuth0Token(token);
+        const roles = extractRoles(claims as Auth0Claims);
+        
+        res.json({
+            id: claims.sub,
+            email: claims.email,
+            name: claims.name,
+            picture: claims.picture,
+            roles: roles,
+        });
+    } catch (error) {
+        res.status(401).json({ error: 'Invalid token' });
+    }
+});
+
+/**
+ * POST /validate-api-key
+ * Legacy endpoint for HTTP fallback
+ */
+authRouter.post('/validate-api-key', async (req: Request, res: Response) => {
+    try {
+        const apiKey = req.headers['x-api-key'] || req.body?.api_key;
+        if (!apiKey) {
+            res.status(401).json({ error: 'Missing API key' });
+            return;
+        }
+        
+        if (apiKey === config.internalApiKey) {
+            res.json({
+                user_id: 'internal-service-user',
+                email: 'internal@confuse.dev',
+                roles: ['service'],
+            });
+            return;
+        }
+        res.status(401).json({ error: 'Invalid API key' });
+    } catch (error) {
+        res.status(500).json({ error: 'Internal error' });
+    }
+});
+
+/**
+ * POST /internal/tokens
+ * Internal endpoint for fetching tokens
+ */
+authRouter.post('/internal/tokens', async (req: Request, res: Response) => {
+    try {
+        const apiKey = req.headers['x-api-key'];
+        if (apiKey !== config.internalApiKey) {
+            res.status(401).json({ success: false, error: 'Invalid API key' });
+            return;
+        }
+        const { userId, provider } = req.body;
+        
+        const account = await prisma.account.findFirst({
+            where: { userId, provider }
+        });
+        if (!account || !account.access_token) {
+            res.status(404).json({ success: false, error: 'Connection invalid' });
+            return;
+        }
+        const finalToken = await refreshTokenIfNeeded(account, provider);
+        
+        res.json({
+            success: true,
+            provider: account.provider,
+            access_token: finalToken,
+            refresh_token: account.refresh_token,
+            token_type: 'Bearer'
+        });
+    } catch (error) {
+        res.status(500).json({ success: false, error: 'Internal error' });
+    }
+});
+
+
+/**
  * GET /auth/connections
  * Get user's social connections
  */

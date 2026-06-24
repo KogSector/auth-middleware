@@ -76,6 +76,9 @@ app.use('/', healthRoutes);
 // Authentication API
 app.use('/api/auth', authRouter);
 
+// Legacy Authentication API (for fallback endpoints)
+app.use('/auth', authRouter);
+
 // User Profile & Onboarding API
 app.use('/api/v1/user', onboardingRoutes);
 
