@@ -1501,7 +1501,7 @@ authRouter.post('/oauth/exchange', requireAuth, async (req: AuthenticatedRequest
  */
 authRouter.delete('/connections/:provider', requireAuth, async (req: AuthenticatedRequest, res: Response) => {
     try {
-        const { provider } = req.params;
+        const provider = req.params.provider as string;
 
         const claims = req.user as Auth0Claims;
         const user = await resolveUserFromClaims(claims);
@@ -1752,7 +1752,7 @@ export async function refreshTokenIfNeeded(account: any, provider: string): Prom
  */
 authRouter.get('/connections/:provider/token', requireAuth, async (req: AuthenticatedRequest, res: Response) => {
     try {
-        const { provider } = req.params;
+        const provider = req.params.provider as string;
         const claims = req.user as Auth0Claims;
         const user = await resolveUserFromClaims(claims);
 
