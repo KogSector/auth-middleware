@@ -37,7 +37,7 @@ interface Config {
     tokenCacheTtlSeconds: number;
     databaseUrl: string;
     corsOrigins: string[];
-    featureToggleServiceUrl: string;
+
     frontendUrl: string;
     grpcPort: number;
     internalApiKey: string;
@@ -89,8 +89,6 @@ export const config: Config = {
         .split(',')
         .map(s => s.trim()),
 
-    // Feature Toggle Service
-    featureToggleServiceUrl: requireEnv('FEATURE_TOGGLE_SERVICE_URL'),
 
     // Frontend URL for OAuth callbacks
     frontendUrl: requireEnv('FRONTEND_URL'),
