@@ -680,7 +680,7 @@ authRouter.get('/connections', requireAuth, async (req: AuthenticatedRequest, re
 /**
  * GET /auth/oauth/url
  * Generate OAuth URL for providers
- * Supports: github, slack, notion, atlassian (jira/confluence)
+ * Supports: github, slack, notion
  */
 authRouter.get('/oauth/url', async (req: Request, res: Response) => {
     try {
@@ -745,25 +745,6 @@ authRouter.get('/oauth/url', async (req: Request, res: Response) => {
                 provider: 'notion',
             });
 
-        } else if (provider === 'jira' || provider === 'confluence' || provider === 'atlassian') {
-            const clientId = config.atlassian.clientId;
-            const redirectUri = config.atlassian.redirectUri;
-            if (!clientId || !redirectUri) {
-                res.status(400).json({ error: 'Atlassian OAuth is not configured. Set ATLASSIAN_CLIENT_ID.' });
-                return;
-            }
-            // Scopes differ for Jira vs Confluence
-            let scopes = 'read:me offline_access';
-            if (provider === 'jira' || provider === 'atlassian') {
-                scopes += ' read:jira-work read:jira-user';
-            }
-            if (provider === 'confluence' || provider === 'atlassian') {
-                scopes += ' read:confluence-content.all read:confluence-space.summary';
-            }
-            res.json({
-                url: `https://auth.atlassian.com/authorize?audience=api.atlassian.com&client_id=${clientId}&scope=${encodeURIComponent(scopes)}&redirect_uri=${encodeURIComponent(redirectUri)}&state=${state}&response_type=code&prompt=consent`,
-                provider: provider === 'atlassian' ? 'jira' : provider,
-            });
 
         } else if (provider === 'microsoft' || provider === 'onedrive') {
             const clientId = config.microsoft.clientId;
@@ -825,7 +806,7 @@ authRouter.get('/oauth/url', async (req: Request, res: Response) => {
 /**
  * POST /auth/oauth/exchange
  * Exchange code for token and save connection
- * Supports: github, slack, notion, atlassian (jira/confluence), custom_apps
+ * Supports: github, slack, notion, custom_apps
  */
 authRouter.post('/oauth/exchange', requireAuth, async (req: AuthenticatedRequest, res: Response) => {
     try {
@@ -1177,82 +1158,7 @@ authRouter.post('/oauth/exchange', requireAuth, async (req: AuthenticatedRequest
 
             res.json({ success: true, message: 'Notion connected successfully' });
 
-        } else if (provider === 'atlassian' || provider === 'jira' || provider === 'confluence') {
-            const clientId = config.atlassian.clientId;
-            const clientSecret = config.atlassian.clientSecret;
-            const redirectUri = config.atlassian.redirectUri;
 
-            if (!clientId || !clientSecret || !redirectUri) {
-                res.status(400).json({ error: 'Atlassian OAuth is not configured. Set ATLASSIAN_CLIENT_ID and ATLASSIAN_CLIENT_SECRET env vars.' });
-                return;
-            }
-
-            const tokenRes = await fetch('https://auth.atlassian.com/oauth/token', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    grant_type: 'authorization_code',
-                    client_id: clientId,
-                    client_secret: clientSecret,
-                    code,
-                    redirect_uri: redirectUri,
-                }),
-            });
-
-            const tokenData = await tokenRes.json();
-
-            if (tokenData.error) {
-                logger.error('[AUTH-OAUTH-EXCHANGE] Atlassian token error', { error: tokenData.error });
-                res.status(400).json({ error: tokenData.error_description || tokenData.error });
-                return;
-            }
-
-            const accessToken = tokenData.access_token;
-            const refreshToken = tokenData.refresh_token || null;
-
-            // Get user profile from Atlassian
-            let providerAccountId = 'unknown';
-            try {
-                const profileRes = await fetch('https://api.atlassian.com/me', {
-                    headers: { 'Authorization': `Bearer ${accessToken}` },
-                });
-                const profileData = await profileRes.json();
-                providerAccountId = profileData.account_id || 'unknown';
-            } catch (e) {
-                logger.warn('[AUTH-OAUTH-EXCHANGE] Could not fetch Atlassian profile', { error: e });
-            }
-
-            // Email match check removed to allow connecting accounts with different emails
-
-            // Store as the specific provider name (jira or confluence) so the UI shows correctly
-            const storedProvider = provider === 'atlassian' ? 'jira' : provider;
-
-            await prisma.account.upsert({
-                where: {
-                    provider_providerAccountId: {
-                        provider: storedProvider,
-                        providerAccountId: String(providerAccountId),
-                    }
-                },
-                update: {
-                    userId: user.id,
-                    type: 'oauth',
-                    access_token: accessToken,
-                    refresh_token: refreshToken,
-                    scope: tokenData.scope || '',
-                },
-                create: {
-                    userId: user.id,
-                    type: 'oauth',
-                    provider: storedProvider,
-                    providerAccountId: String(providerAccountId),
-                    access_token: accessToken,
-                    refresh_token: refreshToken,
-                    scope: tokenData.scope || '',
-                }
-            });
-
-            res.json({ success: true, message: `${storedProvider} connected successfully` });
 
         } else if (provider === 'microsoft' || provider === 'onedrive') {
             const clientId = config.microsoft.clientId;

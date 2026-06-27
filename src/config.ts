@@ -47,7 +47,6 @@ interface Config {
     github: OAuthProviderConfig;
     slack: OAuthProviderConfig;
     notion: OAuthProviderConfig;
-    atlassian: OAuthProviderConfig; // Jira + Confluence share a single Atlassian OAuth app
     gitlab: OAuthProviderConfig;
     bitbucket: OAuthProviderConfig;
     microsoft: OAuthProviderConfig & { tenantId?: string };
@@ -117,11 +116,7 @@ export const config: Config = {
         clientSecret: process.env.NOTION_CLIENT_SECRET,
         redirectUri: process.env.NOTION_REDIRECT_URI,
     },
-    atlassian: {
-        clientId: process.env.ATLASSIAN_CLIENT_ID,
-        clientSecret: process.env.ATLASSIAN_CLIENT_SECRET,
-        redirectUri: process.env.ATLASSIAN_REDIRECT_URI,
-    },
+
     gitlab: {
         clientId: process.env.GITLAB_CLIENT_ID,
         clientSecret: process.env.GITLAB_CLIENT_SECRET,
