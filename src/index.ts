@@ -27,7 +27,20 @@ app.use(securityHeadersMiddleware());
 
 // CORS configuration
 app.use(cors({
-    origin: config.corsOrigins,
+    origin: (origin, callback) => {
+        // Allow requests with no origin (like mobile apps or curl requests)
+        if (!origin) return callback(null, true);
+        // Allow localhost, onrender.com subdomains, and explicitly configured origins
+        if (
+            origin.includes('localhost') || 
+            origin.endsWith('.onrender.com') || 
+            config.corsOrigins.includes(origin)
+        ) {
+            callback(null, true);
+        } else {
+            callback(null, false);
+        }
+    },
     credentials: true,
     methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
     allowedHeaders: [
