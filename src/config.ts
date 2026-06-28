@@ -104,38 +104,38 @@ export const config: Config = {
     github: {
         clientId: process.env.GITHUB_CLIENT_ID,
         clientSecret: process.env.GITHUB_CLIENT_SECRET,
-        redirectUri: process.env.OAUTH_CALLBACK_URL,
+        redirectUri: process.env.OAUTH_CALLBACK_URL?.trim(),
     },
     slack: {
         clientId: process.env.SLACK_CLIENT_ID,
         clientSecret: process.env.SLACK_CLIENT_SECRET,
-        redirectUri: process.env.OAUTH_CALLBACK_URL,
+        redirectUri: process.env.OAUTH_CALLBACK_URL?.trim(),
     },
     notion: {
         clientId: process.env.NOTION_CLIENT_ID,
         clientSecret: process.env.NOTION_CLIENT_SECRET,
-        redirectUri: process.env.OAUTH_CALLBACK_URL,
+        redirectUri: process.env.OAUTH_CALLBACK_URL?.trim(),
     },
 
     gitlab: {
         clientId: process.env.GITLAB_CLIENT_ID,
         clientSecret: process.env.GITLAB_CLIENT_SECRET,
-        redirectUri: process.env.OAUTH_CALLBACK_URL,
+        redirectUri: process.env.OAUTH_CALLBACK_URL?.trim(),
     },
     bitbucket: {
         clientId: process.env.BITBUCKET_CLIENT_ID,
         clientSecret: process.env.BITBUCKET_CLIENT_SECRET,
-        redirectUri: process.env.OAUTH_CALLBACK_URL,
+        redirectUri: process.env.OAUTH_CALLBACK_URL?.trim(),
     },
     microsoft: {
         clientId: process.env.MICROSOFT_CLIENT_ID,
         clientSecret: process.env.MICROSOFT_CLIENT_SECRET,
         tenantId: process.env.MICROSOFT_TENANT_ID,
-        redirectUri: process.env.OAUTH_CALLBACK_URL,
+        redirectUri: process.env.OAUTH_CALLBACK_URL?.trim(),
     },
     dropbox: {
         clientId: process.env.DROPBOX_CLIENT_ID,
         clientSecret: process.env.DROPBOX_CLIENT_SECRET,
-        redirectUri: process.env.OAUTH_CALLBACK_URL,
+        redirectUri: process.env.OAUTH_CALLBACK_URL?.trim(),
     },
 };
