@@ -56,8 +56,8 @@ COPY --chown=node:node --from=builder /app/dist ./dist
 # Copy proto files
 COPY --chown=node:node --from=builder /app/proto ./proto/
 
-# Create keys directory
-RUN mkdir -p keys
+# Create keys directory with correct ownership
+RUN mkdir -p keys && chown node:node keys
 
 # Set environment
 ENV NODE_ENV=production
