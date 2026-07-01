@@ -10,6 +10,11 @@ import type { AuthenticatedRequest, Auth0Claims } from '../types/index.js';
 
 // Health routes
 const healthRoutes = Router();
+
+healthRoutes.get('/', (_req: Request, res: Response) => {
+    res.status(200).send('OK');
+});
+
 healthRoutes.get('/health', async (_req: Request, res: Response) => {
     let dbStatus = 'unknown';
 
