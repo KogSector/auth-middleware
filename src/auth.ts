@@ -583,9 +583,11 @@ authRouter.post('/validate-api-key', async (req: Request, res: Response) => {
         
         if (apiKey === config.internalApiKey) {
             res.json({
-                user_id: 'internal-service-user',
+                id: 'internal-service-user',
                 email: 'internal@confuse.dev',
+                name: 'Internal Service',
                 roles: ['service'],
+                workspace_id: 'system',
             });
             return;
         }
@@ -1747,33 +1749,6 @@ authRouter.post('/internal/tokens', async (req: Request, res: Response) => {
     }
 });
 
-/**
- * POST /auth/validate-api-key
- * Validate internal API key and return mock user
- */
-authRouter.post('/validate-api-key', async (req: Request, res: Response) => {
-    try {
-        const apiKey = req.headers['x-api-key'];
-        
-        if (apiKey !== config.internalApiKey) {
-            sendInvalidApiKey(res);
-            return;
-        }
-
-        // Return mock user for internal API key validation
-        res.json({
-            id: 'internal-service-user',
-            email: 'internal@confuse.dev',
-            name: 'Internal Service',
-            roles: ['service'],
-            workspace_id: 'system'
-        });
-
-    } catch (error) {
-        console.error('API key validation error:', error);
-        res.status(500).json({ error: 'Internal server error' });
-    }
-});
 
 // ============================================================================
 // EXPORTS
