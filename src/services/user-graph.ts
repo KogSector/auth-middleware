@@ -31,7 +31,7 @@ export async function createUserGraph(userId: string): Promise<void> {
     await redis.call('GRAPH.QUERY', graphName, 'CREATE INDEX FOR (c:Vector_Chunk) ON (c.source_id)');
     await redis.call('GRAPH.QUERY', graphName, 'CREATE INDEX FOR (c:Vector_Chunk) ON (c.chunk_type)');
     await redis.call('GRAPH.QUERY', graphName, 'CREATE INDEX FOR (c:Vector_Chunk) ON (c.owner_id)');
-    await redis.call('GRAPH.QUERY', graphName, "CREATE VECTOR INDEX FOR (c:Vector_Chunk) ON (c.embeddings) OPTIONS {dimension: 1536, similarityFunction: 'cosine'}");
+    await redis.call('GRAPH.QUERY', graphName, "CREATE VECTOR INDEX FOR (c:Vector_Chunk) ON (c.embeddings) OPTIONS {dimension: 768, similarityFunction: 'cosine'}");
     
     // Code_Entity indexes
     await redis.call('GRAPH.QUERY', graphName, 'CREATE INDEX FOR (e:Code_Entity) ON (e.name)');
