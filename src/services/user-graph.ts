@@ -1,0 +1,44 @@
+import { Redis } from 'ioredis';
+import { logger } from '../utils/logger.js';
+import * as dotenv from 'dotenv';
+dotenv.config();
+
+const falkordbHost = process.env.FALKORDB_HOST || 'r-6jissuruar.instance-tju0dagr0.hc-7up0crkyn.ap-south-1.aws.f2e0a955bb84.cloud';
+const falkordbPort = parseInt(process.env.FALKORDB_PORT || '64172', 10);
+const falkordbUsername = process.env.FALKORDB_USERNAME || 'falkordb';
+const falkordbPassword = process.env.FALKORDB_PASSWORD || 'falkordb';
+
+/**
+ * Ensures that a FalkorDB graph is created and indexed for a new user.
+ */
+export async function createUserGraph(userId: string): Promise<void> {
+  const graphName = `graph-${userId}`;
+  
+  const redis = new Redis({
+    host: falkordbHost,
+    port: falkordbPort,
+    username: falkordbUsername,
+    password: falkordbPassword,
+    tls: falkordbHost.includes('aws') ? {} : undefined,
+  });
+
+  try {
+    logger.info(`Creating FalkorDB graph and indexes for user: ${userId} (${graphName})`);
+    
+    // Create an index on Vector_Chunk to implicitly create the graph
+    // (We'll also let the unified-processor ensure other indexes lazily if needed)
+    await redis.call('GRAPH.QUERY', graphName, 'CREATE INDEX FOR (c:Vector_Chunk) ON (c.id)');
+    await redis.call('GRAPH.QUERY', graphName, 'CREATE INDEX FOR (c:Vector_Chunk) ON (c.source_id)');
+    
+    logger.info(`Successfully initialized graph ${graphName}`);
+  } catch (error: any) {
+    // If the index already exists, it will throw an error, which is safe to ignore
+    if (error.message && error.message.includes('Index already exists')) {
+      logger.info(`Graph indexes already exist for ${graphName}`);
+    } else {
+      logger.error(`Error initializing FalkorDB graph for user ${userId}:`, error);
+    }
+  } finally {
+    redis.disconnect();
+  }
+}

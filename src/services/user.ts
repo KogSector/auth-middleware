@@ -62,6 +62,13 @@ export async function findOrCreateByAuth0(input: CreateUserInput): Promise<User>
         },
     });
 
+    // Initialize the per-user FalkorDB graph
+    import('./user-graph.js').then(({ createUserGraph }) => {
+        createUserGraph(user.id).catch((err) => {
+            console.error('[USER] Failed to initialize FalkorDB graph asynchronously:', err);
+        });
+    });
+
     // Create default workspace for new user
     try {
         const workspaceName = name ? `${name}'s Workspace` : 'My Workspace';
