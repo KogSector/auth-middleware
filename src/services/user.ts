@@ -147,3 +147,32 @@ export function toProfile(user: User): UserProfile {
         dashboardPreset: user.dashboardPreset,
     };
 }
+
+/**
+ * Deletes a user account, including their FalkorDB graph and all related PostgreSQL data
+ * (workspaces, preferences, api keys, sessions, accounts, etc).
+ */
+export async function deleteUserAccount(userId: string): Promise<void> {
+    // First, delete the FalkorDB graph
+    try {
+        const { deleteUserGraph } = await import('./user-graph.js');
+        await deleteUserGraph(userId);
+    } catch (error) {
+        console.error(`[USER_DELETE] Failed to delete FalkorDB graph for user ${userId}:`, error);
+        // We continue with the deletion even if graph deletion fails
+        // to avoid putting the account in a stuck state.
+    }
+
+    // Second, delete the user from PostgreSQL.
+    // Due to the 'onDelete: Cascade' rules in schema.prisma, this will also wipe:
+    // Workspaces, Preferences, Sessions, ApiKeys, Accounts, etc.
+    try {
+        await prisma.user.delete({
+            where: { id: userId }
+        });
+        console.info(`[USER_DELETE] Successfully deleted user record ${userId} and cascaded data`);
+    } catch (error) {
+        console.error(`[USER_DELETE] Failed to delete PostgreSQL user ${userId}:`, error);
+        throw new Error(`Failed to delete user account: ${error instanceof Error ? error.message : String(error)}`);
+    }
+}

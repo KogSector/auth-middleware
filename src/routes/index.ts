@@ -33,10 +33,10 @@ healthRoutes.get('/health', async (_req: Request, res: Response) => {
     });
 });
 
-// Onboarding routes
-const onboardingRoutes = Router();
+// User routes
+const userRoutes = Router();
 
-onboardingRoutes.get('/onboarding', requireAuth, async (req: AuthenticatedRequest, res: Response) => {
+userRoutes.get('/onboarding', requireAuth, async (req: AuthenticatedRequest, res: Response) => {
     try {
         const claims = req.user as Auth0Claims;
         const user = await prisma.user.findUnique({
@@ -63,7 +63,7 @@ onboardingRoutes.get('/onboarding', requireAuth, async (req: AuthenticatedReques
     }
 });
 
-onboardingRoutes.post('/onboarding', requireAuth, async (req: AuthenticatedRequest, res: Response) => {
+userRoutes.post('/onboarding', requireAuth, async (req: AuthenticatedRequest, res: Response) => {
     try {
         const claims = req.user as Auth0Claims;
         const { userIntent, dashboardPreset, onboardingCompleted } = req.body;
@@ -92,4 +92,32 @@ onboardingRoutes.post('/onboarding', requireAuth, async (req: AuthenticatedReque
     }
 });
 
-export { healthRoutes, onboardingRoutes };
+userRoutes.delete('/', requireAuth, async (req: AuthenticatedRequest, res: Response) => {
+    try {
+        const claims = req.user as Auth0Claims;
+        
+        // Find the internal user ID securely mapped from the verified Auth0 subject
+        const user = await prisma.user.findUnique({
+            where: { auth0Sub: claims.sub },
+            select: { id: true }
+        });
+
+        if (!user) {
+            res.status(404).json({ error: 'User not found' });
+            return;
+        }
+
+        const { deleteUserAccount } = await import('../services/user.js');
+        await deleteUserAccount(user.id);
+
+        res.json({
+            success: true,
+            message: 'User account and associated data successfully deleted.'
+        });
+    } catch (error) {
+        console.error('[USER_DELETE] DELETE error:', error);
+        res.status(500).json({ error: 'Internal server error', details: error instanceof Error ? error.message : String(error) });
+    }
+});
+
+export { healthRoutes, userRoutes };

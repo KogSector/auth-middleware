@@ -42,3 +42,36 @@ export async function createUserGraph(userId: string): Promise<void> {
     redis.disconnect();
   }
 }
+
+/**
+ * Deletes a FalkorDB graph for a user, dropping all nodes and edges.
+ */
+export async function deleteUserGraph(userId: string): Promise<void> {
+  const graphName = `graph-${userId}`;
+  
+  const redis = new Redis({
+    host: falkordbHost,
+    port: falkordbPort,
+    username: falkordbUsername,
+    password: falkordbPassword,
+    tls: falkordbHost.includes('aws') ? {} : undefined,
+  });
+
+  try {
+    logger.info(`Deleting FalkorDB graph for user: ${userId} (${graphName})`);
+    
+    // GRAPH.DELETE will completely remove the graph and all its data
+    await redis.call('GRAPH.DELETE', graphName);
+    
+    logger.info(`Successfully deleted graph ${graphName}`);
+  } catch (error: any) {
+    // If the graph doesn't exist, it's fine. We log it but don't fail.
+    if (error.message && error.message.includes('Invalid graph name')) {
+      logger.info(`Graph ${graphName} did not exist, nothing to delete.`);
+    } else {
+      logger.error(`Error deleting FalkorDB graph for user ${userId}:`, error);
+    }
+  } finally {
+    redis.disconnect();
+  }
+}

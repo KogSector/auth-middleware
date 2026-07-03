@@ -9,7 +9,8 @@ import cors from 'cors';
 import helmet from 'helmet';
 import { config } from './config.js';
 import authRouter from './auth.js';
-import { healthRoutes, onboardingRoutes } from './routes/index.js';
+import { healthRoutes, userRoutes } from './routes/index.js';
+
 import { logger } from './utils/logger.js';
 import { rateLimitMiddleware, initRedis } from './middleware/rate-limiter.js';
 import { securityHeadersMiddleware } from './middleware/security-headers.js';
@@ -93,7 +94,7 @@ app.use('/api/auth', authRouter);
 app.use('/auth', authRouter);
 
 // User Profile & Onboarding API
-app.use('/api/v1/user', onboardingRoutes);
+app.use('/api/v1/user', userRoutes);
 
 // User Stats (Dashboard mock data)
 app.get('/api/users/stats', (req: Request, res: Response) => {
