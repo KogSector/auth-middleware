@@ -29,6 +29,23 @@ export async function createUserGraph(userId: string): Promise<void> {
     // (We'll also let the unified-processor ensure other indexes lazily if needed)
     await redis.call('GRAPH.QUERY', graphName, 'CREATE INDEX FOR (c:Vector_Chunk) ON (c.id)');
     await redis.call('GRAPH.QUERY', graphName, 'CREATE INDEX FOR (c:Vector_Chunk) ON (c.source_id)');
+    await redis.call('GRAPH.QUERY', graphName, 'CREATE INDEX FOR (c:Vector_Chunk) ON (c.chunk_type)');
+    await redis.call('GRAPH.QUERY', graphName, 'CREATE INDEX FOR (c:Vector_Chunk) ON (c.owner_id)');
+    await redis.call('GRAPH.QUERY', graphName, "CREATE VECTOR INDEX FOR (c:Vector_Chunk) ON (c.embeddings) OPTIONS {dimension: 1536, similarityFunction: 'cosine'}");
+    
+    // Code_Entity indexes
+    await redis.call('GRAPH.QUERY', graphName, 'CREATE INDEX FOR (e:Code_Entity) ON (e.name)');
+    await redis.call('GRAPH.QUERY', graphName, 'CREATE INDEX FOR (e:Code_Entity) ON (e.entity_type)');
+    await redis.call('GRAPH.QUERY', graphName, 'CREATE INDEX FOR (e:Code_Entity) ON (e.source_id)');
+    await redis.call('GRAPH.QUERY', graphName, 'CREATE INDEX FOR (e:Code_Entity) ON (e.qualified_name)');
+    await redis.call('GRAPH.QUERY', graphName, 'CREATE INDEX FOR (e:Code_Entity) ON (e.owner_id)');
+    
+    // Web_Page and Repository indexes
+    await redis.call('GRAPH.QUERY', graphName, 'CREATE INDEX FOR (p:Web_Page) ON (p.url)');
+    await redis.call('GRAPH.QUERY', graphName, 'CREATE INDEX FOR (p:Web_Page) ON (p.domain)');
+    await redis.call('GRAPH.QUERY', graphName, 'CREATE INDEX FOR (p:Web_Page) ON (p.source_id)');
+    await redis.call('GRAPH.QUERY', graphName, 'CREATE INDEX FOR (p:Web_Page) ON (p.owner_id)');
+    await redis.call('GRAPH.QUERY', graphName, 'CREATE INDEX FOR (r:Repository) ON (r.owner_id)');
     
     logger.info(`Successfully initialized graph ${graphName}`);
   } catch (error: any) {
