@@ -171,7 +171,7 @@ model KnowledgeBase {
   description      String?
   type             String    @default("general")
   status           String    @default("active")
-  embeddingModel   String    @default("all-MiniLM-L6-v2") @map("embedding_model")
+  embeddingModel   String    @default("gemini-embedding-2") @map("embedding_model")
   createdAt        DateTime  @default(now()) @map("created_at")
   updatedAt        DateTime  @updatedAt @map("updated_at")
   milvusCollection String?   @map("milvus_collection")
@@ -214,7 +214,7 @@ model UserPreference {
   language            String   @default("en")
   timezone            String   @default("UTC")
   defaultModel        String   @default("gpt-4") @map("default_model")
-  embeddingModel      String   @default("all-MiniLM-L6-v2") @map("embedding_model")
+  embeddingModel      String   @default("gemini-embedding-2") @map("embedding_model")
   enableNotifications Boolean  @default(true) @map("enable_notifications")
   emailDigest         String   @default("weekly") @map("email_digest")
   defaultWorkspaceId  String?  @map("default_workspace_id") @db.Uuid
