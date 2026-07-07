@@ -18,10 +18,10 @@ interface Auth0Config {
 
 import path from 'path';
 
-// Load local .env.map first (non-sensitive defaults)
+// Load .env.map first, then .env.secret, then .env.local
 dotenv.config({ path: path.resolve(process.cwd(), '.env.map') });
-// Then load local .env.secret (sensitive values that override defaults)
 dotenv.config({ path: path.resolve(process.cwd(), '.env.secret') });
+dotenv.config({ path: path.resolve(process.cwd(), '.env.local') });
 
 interface OAuthProviderConfig {
     clientId?: string;
