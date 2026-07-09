@@ -1,12 +1,16 @@
 import winston from 'winston';
 import path from 'path';
 import fs from 'fs';
+import { AsyncLocalStorage } from 'async_hooks';
 
 // Ensure logs directory exists
 const logDir = 'logs';
 if (!fs.existsSync(logDir)) {
     fs.mkdirSync(logDir);
 }
+
+// Async local storage for correlation ID
+export const asyncLocalStorage = new AsyncLocalStorage<Map<string, string>>();
 
 const levels = {
     error: 0,
@@ -26,11 +30,27 @@ const colors = {
 
 winston.addColors(colors);
 
+// Custom format to inject correlation ID
+const addCorrelationId = winston.format((info) => {
+    const store = asyncLocalStorage.getStore();
+    if (store) {
+        const correlationId = store.get('correlationId');
+        if (correlationId) {
+            info.correlationId = correlationId;
+        }
+    }
+    return info;
+});
+
 const format = winston.format.combine(
+    addCorrelationId(),
     winston.format.timestamp({ format: 'YYYY-MM-DD HH:mm:ss:ms' }),
     winston.format.colorize({ all: true }),
     winston.format.printf(
-        (info: Record<string, unknown>) => `${String(info['timestamp'])} ${String(info['level'])}: ${String(info['message'])}`
+        (info: Record<string, unknown>) => {
+            const corr = info.correlationId ? `[${String(info.correlationId)}] ` : '';
+            return `${String(info['timestamp'])} ${String(info['level'])}: ${corr}${String(info['message'])}`;
+        }
     )
 );
 
@@ -42,6 +62,7 @@ const transports = [
         filename: path.join(logDir, 'error.log'),
         level: 'error',
         format: winston.format.combine(
+            addCorrelationId(),
             winston.format.uncolorize(),
             winston.format.json()
         ),
@@ -51,6 +72,7 @@ const transports = [
     new winston.transports.File({
         filename: path.join(logDir, 'app.log'),
         format: winston.format.combine(
+            addCorrelationId(),
             winston.format.uncolorize(),
             winston.format.json()
         ),

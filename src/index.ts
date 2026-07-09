@@ -11,7 +11,8 @@ import { config } from './config.js';
 import authRouter from './auth.js';
 import { healthRoutes, userRoutes } from './routes/index.js';
 
-import { logger } from './utils/logger.js';
+import { randomUUID } from 'crypto';
+import { logger, asyncLocalStorage } from './utils/logger.js';
 import { rateLimitMiddleware, initRedis } from './middleware/rate-limiter.js';
 import { securityHeadersMiddleware } from './middleware/security-headers.js';
 import { startGrpcServer } from './infra/grpc.js';
@@ -63,25 +64,32 @@ app.use(express.json());
 // Rate limiting (after body parsing, before routes)
 app.use(rateLimitMiddleware());
 
-// Request logging
+// Correlation ID and Request logging
 app.use((req: Request, res: Response, next: NextFunction) => {
-    const start = Date.now();
-    const requestId = `req_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
-    logger.http(`[REQUEST] [${requestId}] ${req.method} ${req.path} started`, {
-        headers: { authorization: req.headers.authorization ? 'present' : 'absent', 'x-service-name': req.headers['x-service-name'] },
-        ip: req.ip,
+    const correlationId = (req.headers['x-correlation-id'] as string) || randomUUID();
+    res.setHeader('X-Correlation-Id', correlationId);
+
+    const store = new Map<string, string>();
+    store.set('correlationId', correlationId);
+
+    asyncLocalStorage.run(store, () => {
+        const start = Date.now();
+        logger.http(`[REQUEST] ${req.method} ${req.path} started`, {
+            headers: { authorization: req.headers.authorization ? 'present' : 'absent', 'x-service-name': req.headers['x-service-name'] },
+            ip: req.ip,
+        });
+        res.on('finish', () => {
+            const duration = Date.now() - start;
+            const level = res.statusCode >= 400 ? 'error' : 'info';
+            const msg = `[RESPONSE] ${req.method} ${req.path} ${res.statusCode} ${duration}ms`;
+            if (level === 'error') {
+                logger.error(msg);
+            } else {
+                logger.http(msg);
+            }
+        });
+        next();
     });
-    res.on('finish', () => {
-        const duration = Date.now() - start;
-        const level = res.statusCode >= 400 ? 'error' : 'info';
-        const msg = `[RESPONSE] [${requestId}] ${req.method} ${req.path} ${res.statusCode} ${duration}ms`;
-        if (level === 'error') {
-            logger.error(msg);
-        } else {
-            logger.http(msg);
-        }
-    });
-    next();
 });
 
 // Health & Metrics
