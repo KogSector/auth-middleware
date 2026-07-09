@@ -18,10 +18,12 @@ interface Auth0Config {
 
 import path from 'path';
 
-// Load .env.map first, then .env.secret, then .env.local
+// Load .env.map first, then .env.secret (with override), then .env.local
 dotenv.config({ path: path.resolve(process.cwd(), '.env.map') });
-dotenv.config({ path: path.resolve(process.cwd(), '.env.secret') });
-dotenv.config({ path: path.resolve(process.cwd(), '.env.local') });
+// .env.secret overrides defaults (override: true ensures secrets win over .env.map)
+dotenv.config({ path: path.resolve(process.cwd(), '.env.secret'), override: true });
+// .env.local allows local developer overrides on top of everything
+dotenv.config({ path: path.resolve(process.cwd(), '.env.local'), override: true });
 
 interface OAuthProviderConfig {
     clientId?: string;
@@ -104,38 +106,38 @@ export const config: Config = {
     github: {
         clientId: process.env.GITHUB_CLIENT_ID,
         clientSecret: process.env.GITHUB_CLIENT_SECRET,
-        redirectUri: process.env.OAUTH_CALLBACK_URL?.trim(),
+        redirectUri: process.env.GITHUB_REDIRECT_URI?.trim() || process.env.OAUTH_CALLBACK_URL?.trim(),
     },
     slack: {
         clientId: process.env.SLACK_CLIENT_ID,
         clientSecret: process.env.SLACK_CLIENT_SECRET,
-        redirectUri: process.env.OAUTH_CALLBACK_URL?.trim(),
+        redirectUri: process.env.SLACK_REDIRECT_URI?.trim() || process.env.OAUTH_CALLBACK_URL?.trim(),
     },
     notion: {
         clientId: process.env.NOTION_CLIENT_ID,
         clientSecret: process.env.NOTION_CLIENT_SECRET,
-        redirectUri: process.env.OAUTH_CALLBACK_URL?.trim(),
+        redirectUri: process.env.NOTION_REDIRECT_URI?.trim() || process.env.OAUTH_CALLBACK_URL?.trim(),
     },
 
     gitlab: {
         clientId: process.env.GITLAB_CLIENT_ID,
         clientSecret: process.env.GITLAB_CLIENT_SECRET,
-        redirectUri: process.env.OAUTH_CALLBACK_URL?.trim(),
+        redirectUri: process.env.GITLAB_REDIRECT_URI?.trim() || process.env.OAUTH_CALLBACK_URL?.trim(),
     },
     bitbucket: {
         clientId: process.env.BITBUCKET_CLIENT_ID,
         clientSecret: process.env.BITBUCKET_CLIENT_SECRET,
-        redirectUri: process.env.OAUTH_CALLBACK_URL?.trim(),
+        redirectUri: process.env.BITBUCKET_REDIRECT_URI?.trim() || process.env.OAUTH_CALLBACK_URL?.trim(),
     },
     microsoft: {
         clientId: process.env.MICROSOFT_CLIENT_ID,
         clientSecret: process.env.MICROSOFT_CLIENT_SECRET,
         tenantId: process.env.MICROSOFT_TENANT_ID,
-        redirectUri: process.env.OAUTH_CALLBACK_URL?.trim(),
+        redirectUri: process.env.MICROSOFT_REDIRECT_URI?.trim() || process.env.OAUTH_CALLBACK_URL?.trim(),
     },
     dropbox: {
         clientId: process.env.DROPBOX_CLIENT_ID,
         clientSecret: process.env.DROPBOX_CLIENT_SECRET,
-        redirectUri: process.env.OAUTH_CALLBACK_URL?.trim(),
+        redirectUri: process.env.DROPBOX_REDIRECT_URI?.trim() || process.env.OAUTH_CALLBACK_URL?.trim(),
     },
 };
