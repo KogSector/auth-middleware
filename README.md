@@ -57,7 +57,7 @@ Authentication and authorization service for the ConFuse platform. Handles Auth0
 | `/api-keys/:id` | DELETE | Revoke API key |
 | `/api-keys/validate` | POST | Validate API key |
 
-## Quick Start
+## How to run the microservice
 
 ```bash
 # Install dependencies
