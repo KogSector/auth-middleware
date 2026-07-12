@@ -1,13 +1,13 @@
 /**
  * ConFuse Auth Middleware - Token Cache Service
  * 
- * Provides in-memory token caching for distributed authentication
+ * Provides Redis-based token caching for distributed authentication
  * with TTL-based expiration and cache-first validation pattern.
  */
 
+import { Redis } from 'ioredis';
 import { config } from '../config.js';
 import { logger } from '../utils/logger.js';
-import BloomFilter from '../utils/bloomFilter.js';
 
 // Token cache entry structure
 interface CachedToken {
@@ -25,75 +25,73 @@ interface CacheStats {
     errors: number;
 }
 
-// In-memory cache entry with expiration
-interface CacheEntry<T> {
-    data: T;
-    expiresAt: number;
-}
-
 class TokenCacheService {
-    private tokenCache: Map<string, CacheEntry<CachedToken>> = new Map();
-    // DSA: Secondary index — userId → Set<cacheKey> for O(1) user-token invalidation.
-    // Without this, invalidateUserTokens() requires O(n) scan of the entire cache.
-    private userKeyIndex: Map<string, Set<string>> = new Map();
-    private bloomFilter = new BloomFilter(20000, 0.01); // Capacity for 20k tokens
+    private redis: Redis | null = null;
     private isInitialized = false;
     private stats: CacheStats = { hits: 0, misses: 0, errors: 0 };
     private readonly TOKEN_PREFIX = 'auth:token:';
-    private cleanupInterval: ReturnType<typeof setInterval> | null = null;
-    private readonly MAX_CACHE_SIZE = 5000; // Limit in-memory cache size
+    private readonly USER_INDEX_PREFIX = 'auth:user:tokens:';
 
     /**
-     * Initialize in-memory cache
+     * Initialize Redis cache
      */
     async initialize(): Promise<void> {
-        this.isInitialized = true;
+        if (this.isInitialized) return;
 
-        // Periodic cleanup of expired entries every 60 seconds
-        this.cleanupInterval = setInterval(() => this.cleanup(), 60_000);
+        try {
+            this.redis = new Redis(config.redisUrl, {
+                keepAlive: 10000,
+                retryStrategy: (times) => Math.min(times * 50, 2000),
+            });
 
-        logger.info('[TOKEN-CACHE] In-memory token cache service initialized (Bloom Filter + LRU active)');
+            this.redis.on('error', (err: Error) => {
+                logger.error('[TOKEN-CACHE] Redis connection error', { error: err.message });
+            });
+
+            this.redis.on('connect', () => {
+                logger.info('[TOKEN-CACHE] Redis connected successfully');
+            });
+
+            this.isInitialized = true;
+            logger.info('[TOKEN-CACHE] Redis token cache service initialized');
+        } catch (error) {
+            logger.error('[TOKEN-CACHE] Failed to initialize Redis', error);
+        }
     }
 
     /**
      * Check if cache is available
      */
     isAvailable(): boolean {
-        return this.isInitialized;
+        return this.isInitialized && this.redis?.status === 'ready';
     }
 
     /**
      * Get cached token data
      */
     async getToken(tokenHash: string): Promise<CachedToken | null> {
-        if (!this.isAvailable()) {
+        if (!this.isAvailable() || !this.redis) {
             this.stats.misses++;
             return null;
         }
 
         try {
-            // DSA Optimization 1: Bloom Filter early exit (O(1) probabilistic check)
-            if (!this.bloomFilter.check(tokenHash)) {
-                this.stats.misses++;
-                return null;
-            }
-
             const key = `${this.TOKEN_PREFIX}${tokenHash}`;
-            const entry = this.tokenCache.get(key);
+            const dataStr = await this.redis.get(key);
 
-            if (entry && entry.expiresAt > Date.now()) {
-                // DSA Optimization 2: LRU - Move accessed entry to the end
-                this.tokenCache.delete(key);
-                this.tokenCache.set(key, entry);
-
-                this.stats.hits++;
-                logger.debug(`[TOKEN-CACHE] Cache hit for token hash: ${tokenHash.substring(0, 8)}...`);
-                return entry.data;
-            }
-
-            // Remove expired entry
-            if (entry) {
-                this.tokenCache.delete(key);
+            if (dataStr) {
+                const data = JSON.parse(dataStr) as CachedToken;
+                if (data.expiresAt > Date.now()) {
+                    this.stats.hits++;
+                    logger.debug(`[TOKEN-CACHE] Cache hit for token hash: ${tokenHash.substring(0, 8)}...`);
+                    
+                    // Refresh TTL (LRU-like behavior)
+                    await this.redis.expire(key, config.tokenCacheTtlSeconds);
+                    return data;
+                } else {
+                    // Cleanup expired manually just in case, though Redis handles TTL
+                    await this.invalidateToken(tokenHash);
+                }
             }
 
             this.stats.misses++;
@@ -110,7 +108,7 @@ class TokenCacheService {
      * Cache validated token data
      */
     async setToken(tokenHash: string, data: CachedToken): Promise<void> {
-        if (!this.isAvailable()) {
+        if (!this.isAvailable() || !this.redis) {
             return;
         }
 
@@ -118,38 +116,15 @@ class TokenCacheService {
             const key = `${this.TOKEN_PREFIX}${tokenHash}`;
             const ttl = config.tokenCacheTtlSeconds;
 
-            // DSA Optimization 3: Add to Bloom Filter
-            this.bloomFilter.add(tokenHash);
+            const pipeline = this.redis.pipeline();
+            pipeline.setex(key, ttl, JSON.stringify(data));
+            
+            // Maintain the userId → keys secondary index
+            const userIndexKey = `${this.USER_INDEX_PREFIX}${data.userId}`;
+            pipeline.sadd(userIndexKey, key);
+            pipeline.expire(userIndexKey, ttl); // ensure index also expires
 
-            // DSA Optimization 4: LRU Eviction (size-based)
-            if (this.tokenCache.size >= this.MAX_CACHE_SIZE && !this.tokenCache.has(key)) {
-                // Remove the oldest item (first key in Map iterator)
-                const oldestKey = this.tokenCache.keys().next().value;
-                if (oldestKey) {
-                    // DSA: Also remove from secondary userId index on eviction
-                    const evicted = this.tokenCache.get(oldestKey);
-                    if (evicted) {
-                        const userKeys = this.userKeyIndex.get(evicted.data.userId);
-                        if (userKeys) {
-                            userKeys.delete(oldestKey);
-                            if (userKeys.size === 0) this.userKeyIndex.delete(evicted.data.userId);
-                        }
-                    }
-                    this.tokenCache.delete(oldestKey);
-                    logger.debug(`[TOKEN-CACHE] LRU Evicted oldest key: ${oldestKey}`);
-                }
-            }
-
-            this.tokenCache.set(key, {
-                data,
-                expiresAt: Date.now() + (ttl * 1000),
-            });
-
-            // DSA: Maintain the userId → keys secondary index
-            if (!this.userKeyIndex.has(data.userId)) {
-                this.userKeyIndex.set(data.userId, new Set());
-            }
-            this.userKeyIndex.get(data.userId)!.add(key);
+            await pipeline.exec();
 
             logger.debug(`[TOKEN-CACHE] Cached token for hash: ${tokenHash.substring(0, 8)}... TTL: ${ttl}s`);
         } catch (error) {
@@ -162,22 +137,27 @@ class TokenCacheService {
      * Invalidate cached token
      */
     async invalidateToken(tokenHash: string): Promise<void> {
-        if (!this.isAvailable()) {
+        if (!this.isAvailable() || !this.redis) {
             return;
         }
 
         try {
             const key = `${this.TOKEN_PREFIX}${tokenHash}`;
-            // DSA: Remove from secondary userId index before deleting
-            const entry = this.tokenCache.get(key);
-            if (entry) {
-                const userKeys = this.userKeyIndex.get(entry.data.userId);
-                if (userKeys) {
-                    userKeys.delete(key);
-                    if (userKeys.size === 0) this.userKeyIndex.delete(entry.data.userId);
-                }
+            
+            // Need to fetch it first to get userId to remove from secondary index
+            const dataStr = await this.redis.get(key);
+            if (dataStr) {
+                const data = JSON.parse(dataStr) as CachedToken;
+                const userIndexKey = `${this.USER_INDEX_PREFIX}${data.userId}`;
+                
+                const pipeline = this.redis.pipeline();
+                pipeline.srem(userIndexKey, key);
+                pipeline.del(key);
+                await pipeline.exec();
+            } else {
+                await this.redis.del(key);
             }
-            this.tokenCache.delete(key);
+            
             logger.debug(`[TOKEN-CACHE] Invalidated token hash: ${tokenHash.substring(0, 8)}...`);
         } catch (error) {
             this.stats.errors++;
@@ -189,34 +169,34 @@ class TokenCacheService {
      * Invalidate all tokens for a user
      */
     async invalidateUserTokens(userId: string): Promise<number> {
-        if (!this.isAvailable()) {
+        if (!this.isAvailable() || !this.redis) {
             return 0;
         }
 
         try {
-            // DSA: O(k) invalidation via secondary index, where k = tokens belonging to this user.
-            // Previously O(n) scanning the entire tokenCache Map.
-            const userKeys = this.userKeyIndex.get(userId);
-            if (!userKeys || userKeys.size === 0) {
+            const userIndexKey = `${this.USER_INDEX_PREFIX}${userId}`;
+            const keys = await this.redis.smembers(userIndexKey);
+
+            if (!keys || keys.length === 0) {
                 logger.info(`[TOKEN-CACHE] No tokens found for user: ${userId}`);
                 return 0;
             }
 
-            const invalidatedCount = userKeys.size;
-            for (const key of userKeys) {
-                this.tokenCache.delete(key);
+            const pipeline = this.redis.pipeline();
+            for (const key of keys) {
+                pipeline.del(key);
             }
-            this.userKeyIndex.delete(userId);
+            pipeline.del(userIndexKey);
+            await pipeline.exec();
 
-            logger.info(`[TOKEN-CACHE] Invalidated ${invalidatedCount} tokens for user: ${userId}`);
-            return invalidatedCount;
+            logger.info(`[TOKEN-CACHE] Invalidated ${keys.length} tokens for user: ${userId}`);
+            return keys.length;
         } catch (error) {
             this.stats.errors++;
             logger.error('[TOKEN-CACHE] Error invalidating user tokens:', error);
             return 0;
         }
     }
-
 
     /**
      * Get cache statistics
@@ -231,32 +211,16 @@ class TokenCacheService {
      * Health check
      */
     async healthCheck(): Promise<{ status: string; latencyMs: number }> {
-        if (!this.isAvailable()) {
+        if (!this.isAvailable() || !this.redis) {
             return { status: 'not_initialized', latencyMs: -1 };
         }
-        return { status: 'healthy', latencyMs: 0 };
-    }
-
-    /**
-     * Clean up expired entries
-     */
-    private cleanup(): void {
-        const now = Date.now();
-        let cleaned = 0;
-        for (const [key, entry] of this.tokenCache.entries()) {
-            if (entry.expiresAt <= now) {
-                // DSA: Maintain userId index during cleanup
-                const userKeys = this.userKeyIndex.get(entry.data.userId);
-                if (userKeys) {
-                    userKeys.delete(key);
-                    if (userKeys.size === 0) this.userKeyIndex.delete(entry.data.userId);
-                }
-                this.tokenCache.delete(key);
-                cleaned++;
-            }
-        }
-        if (cleaned > 0) {
-            logger.debug(`[TOKEN-CACHE] Cleaned up ${cleaned} expired entries`);
+        
+        try {
+            const start = Date.now();
+            await this.redis.ping();
+            return { status: 'healthy', latencyMs: Date.now() - start };
+        } catch (error) {
+            return { status: 'error', latencyMs: -1 };
         }
     }
 
@@ -264,15 +228,12 @@ class TokenCacheService {
      * Graceful shutdown
      */
     async shutdown(): Promise<void> {
-        if (this.cleanupInterval) {
-            clearInterval(this.cleanupInterval);
+        if (this.redis) {
+            await this.redis.quit();
+            logger.info('[TOKEN-CACHE] Redis connection closed gracefully');
         }
-        this.tokenCache.clear();
-        this.userKeyIndex.clear();
-        logger.info('[TOKEN-CACHE] In-memory cache cleared');
     }
 }
 
 // Singleton instance
 export const tokenCache = new TokenCacheService();
-
