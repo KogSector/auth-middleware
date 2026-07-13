@@ -5,7 +5,7 @@ import * as protoLoader from '@grpc/proto-loader';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import { config } from '../config.js';
-import { verifyAuth0Token, extractRoles, refreshTokenIfNeeded } from '../auth.js';
+import { verifyAuth0Token, extractRoles, refreshTokenIfNeeded, getProviderAliases } from '../auth.js';
 import { findById } from '../services/user.js';
 import { logger } from '../utils/logger.js';
 import { prisma } from './db.js';
@@ -96,10 +96,11 @@ const getInternalToken = async (call: any, callback: any) => {
     }
 
     try {
+        const providerAliases = getProviderAliases(provider);
         const account = await prisma.account.findFirst({
             where: {
                 userId: user_id,
-                provider: provider,
+                provider: { in: providerAliases },
             }
         });
 

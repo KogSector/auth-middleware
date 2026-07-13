@@ -365,6 +365,21 @@ function sendInvalidApiKey(res: Response) {
     res.status(403).json({ error: 'Invalid API key' });
 }
 
+/**
+ * Resolve provider aliases for OneDrive/Microsoft.
+ * The account may be stored under any of these provider names depending
+ * on the original auth flow (direct OAuth vs Auth0 sync).
+ */
+export function getProviderAliases(provider: string): string[] {
+    if (['onedrive', 'microsoft', 'windowslive', 'waad'].includes(provider)) {
+        return ['onedrive', 'microsoft', 'windowslive', 'waad'];
+    }
+    if (['google', 'google-oauth2', 'google_drive'].includes(provider)) {
+        return ['google', 'google-oauth2', 'google_drive'];
+    }
+    return [provider];
+}
+
 // Create router
 export const authRouter = Router();
 
@@ -610,8 +625,9 @@ authRouter.post('/internal/tokens', async (req: Request, res: Response) => {
         }
         const { userId, provider } = req.body;
         
+        const providerAliases = getProviderAliases(provider);
         const account = await prisma.account.findFirst({
-            where: { userId, provider }
+            where: { userId, provider: { in: providerAliases } }
         });
         if (!account || !account.access_token) {
             res.status(404).json({ success: false, error: 'Connection invalid' });
@@ -1574,7 +1590,7 @@ export async function refreshTokenIfNeeded(account: any, provider: string): Prom
                 // Ignore network errors here, let the actual request fail if so
             }
         }
-    } else if (provider === 'microsoft' || provider === 'onedrive' || provider === 'windowslive') {
+    } else if (provider === 'microsoft' || provider === 'onedrive' || provider === 'windowslive' || provider === 'waad') {
         if (account.expires_at && account.expires_at < Date.now() / 1000 + 60) {
             needsRefresh = true;
         } else {
@@ -1606,18 +1622,47 @@ export async function refreshTokenIfNeeded(account: any, provider: string): Prom
                         grant_type: 'refresh_token'
                     })
                 });
-            } else if (provider === 'microsoft' || provider === 'onedrive' || provider === 'windowslive') {
-                const tenantId = config.microsoft.tenantId || 'consumers';
+            } else if (provider === 'microsoft' || provider === 'onedrive' || provider === 'windowslive' || provider === 'waad') {
+                // Use 'common' to match the authorization flow — supports both personal and work accounts
+                const tenantId = config.microsoft.tenantId || 'common';
+                const clientId = config.microsoft.clientId || '';
+                const clientSecret = config.microsoft.clientSecret || '';
+
+                // Try refresh WITHOUT client_secret first (PKCE/public client flow).
+                // If the app was registered as a public client or the user authenticated
+                // via PKCE, Microsoft rejects requests that include client_secret (AADSTS700025).
+                const baseParams: Record<string, string> = {
+                    client_id: clientId,
+                    refresh_token: account.refresh_token,
+                    grant_type: 'refresh_token',
+                    scope: 'https://graph.microsoft.com/Files.Read https://graph.microsoft.com/Files.ReadWrite offline_access https://graph.microsoft.com/User.Read'
+                };
+
                 tokenRes = await fetch(`https://login.microsoftonline.com/${tenantId}/oauth2/v2.0/token`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-                    body: new URLSearchParams({
-                        client_id: config.microsoft.clientId || '',
-                        client_secret: config.microsoft.clientSecret || '',
-                        refresh_token: account.refresh_token,
-                        grant_type: 'refresh_token'
-                    }).toString()
+                    body: new URLSearchParams(baseParams).toString()
                 });
+
+                // If public-client refresh failed and we have a client_secret,
+                // retry as a confidential client (AADSTS700027).
+                if (!tokenRes.ok && clientSecret) {
+                    const errorData = await tokenRes.json().catch(() => ({}));
+                    const errorCode = errorData?.error || '';
+                    // AADSTS700027 = confidential client requires client_secret/assertion
+                    // AADSTS7000218 = request must include client_secret
+                    if (errorCode === 'invalid_client' || errorCode.includes('700027') || errorCode.includes('7000218')) {
+                        logger.info('[TOKEN-REFRESH] Public client refresh rejected, retrying as confidential client', { provider });
+                        tokenRes = await fetch(`https://login.microsoftonline.com/${tenantId}/oauth2/v2.0/token`, {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+                            body: new URLSearchParams({
+                                ...baseParams,
+                                client_secret: clientSecret
+                            }).toString()
+                        });
+                    }
+                }
             }
 
             if (tokenRes) {
@@ -1632,14 +1677,16 @@ export async function refreshTokenIfNeeded(account: any, provider: string): Prom
                             expires_at: tokenData.expires_in ? Math.floor(Date.now() / 1000) + tokenData.expires_in : null
                         }
                     });
+                    logger.info('[TOKEN-REFRESH] Successfully refreshed token', { provider, accountId: account.id });
                 } else {
-                    console.error(`${provider} token refresh failed:`, tokenData);
-                    // Clear the invalid tokens and throw an error to trigger re-auth
+                    logger.error(`[TOKEN-REFRESH] ${provider} token refresh failed`, { error: tokenData.error, description: tokenData.error_description });
+                    // Only clear the access_token — preserve refresh_token so we can retry.
+                    // Microsoft refresh tokens are valid for up to 90 days;
+                    // the failure might be transient (network, rate limit, etc.).
                     await prisma.account.update({
                         where: { id: account.id },
                         data: {
                             access_token: null,
-                            refresh_token: null,
                             expires_at: null
                         }
                     });
@@ -1647,7 +1694,7 @@ export async function refreshTokenIfNeeded(account: any, provider: string): Prom
                 }
             }
         } catch (err) {
-            console.error('Error refreshing token:', err);
+            logger.error('[TOKEN-REFRESH] Error refreshing token', { provider, error: err instanceof Error ? err.message : String(err) });
             throw err;
         }
     }
@@ -1669,11 +1716,12 @@ authRouter.get('/connections/:provider/token', requireAuth, async (req: Authenti
             return;
         }
 
-        // We lookup the account that matches this user and provider
+        // We lookup the account that matches this user and provider (with alias resolution)
+        const providerAliases = getProviderAliases(provider);
         const account = await prisma.account.findFirst({
             where: {
                 userId: user.id,
-                provider: provider,
+                provider: { in: providerAliases },
             }
         });
 
@@ -1718,10 +1766,11 @@ authRouter.post('/internal/tokens', async (req: Request, res: Response) => {
             return;
         }
 
+        const providerAliases = getProviderAliases(provider);
         const account = await prisma.account.findFirst({
             where: {
                 userId,
-                provider,
+                provider: { in: providerAliases },
             }
         });
 
