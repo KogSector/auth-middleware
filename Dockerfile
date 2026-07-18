@@ -61,11 +61,8 @@ RUN mkdir -p keys && chown node:node keys
 
 # Set environment
 ENV NODE_ENV=production
-ENV PORT=8080
 
-EXPOSE 8080
-
-# Health check optimized for Cloud Run
+# Health check optimized for Cloud Run/Render
 HEALTHCHECK --interval=30s --timeout=10s --start-period=60s --retries=3 \
     CMD wget --no-verbose --tries=1 --spider http://localhost:${PORT}/health || exit 1
 
