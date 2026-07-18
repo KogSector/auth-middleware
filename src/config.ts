@@ -65,7 +65,7 @@ function requireEnv(name: string): string {
 
 export const config: Config = {
     // Server
-    port: parseInt(requireEnv('AUTH_MIDDLEWARE_PORT'), 10),
+    port: parseInt(process.env.PORT || process.env.AUTH_MIDDLEWARE_PORT || '3010', 10),
     nodeEnv: requireEnv('NODE_ENV'),
 
     // Auth0 (required — OAuth via Google or Microsoft)
