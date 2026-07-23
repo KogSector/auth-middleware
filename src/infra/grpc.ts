@@ -104,7 +104,7 @@ const getInternalToken = async (call: any, callback: any) => {
             }
         });
 
-        if (!account || !account.access_token) {
+        if (!account || (!account.access_token && !account.refresh_token)) {
             return callback(null, { success: false, error: 'Connection invalid or expired. Please re-connect your account.' });
         }
 

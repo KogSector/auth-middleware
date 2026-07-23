@@ -629,7 +629,7 @@ authRouter.post('/internal/tokens', async (req: Request, res: Response) => {
         const account = await prisma.account.findFirst({
             where: { userId, provider: { in: providerAliases } }
         });
-        if (!account || !account.access_token) {
+        if (!account || (!account.access_token && !account.refresh_token)) {
             res.status(404).json({ success: false, error: 'Connection invalid' });
             return;
         }
@@ -643,7 +643,9 @@ authRouter.post('/internal/tokens', async (req: Request, res: Response) => {
             token_type: 'Bearer'
         });
     } catch (error) {
-        res.status(500).json({ success: false, error: 'Internal error' });
+        const errorMsg = error instanceof Error ? error.message : String(error);
+        logger.error('[INTERNAL-TOKENS] Failed to fetch internal token', { error: errorMsg });
+        res.status(500).json({ success: false, error: errorMsg });
     }
 });
 
@@ -1574,8 +1576,11 @@ export async function refreshTokenIfNeeded(account: any, provider: string): Prom
     let finalAccessToken = account.access_token;
     
     let needsRefresh = false;
+    if (!account.access_token && account.refresh_token) {
+        needsRefresh = true;
+    }
     if (provider === 'gitlab') {
-        if (account.expires_at && account.expires_at < Date.now() / 1000 + 60) {
+        if (!account.access_token || (account.expires_at && account.expires_at < Date.now() / 1000 + 60)) {
             needsRefresh = true;
         } else {
             // Test token validity
@@ -1591,7 +1596,7 @@ export async function refreshTokenIfNeeded(account: any, provider: string): Prom
             }
         }
     } else if (provider === 'microsoft' || provider === 'onedrive' || provider === 'windowslive' || provider === 'waad') {
-        if (account.expires_at && account.expires_at < Date.now() / 1000 + 60) {
+        if (!account.access_token || (account.expires_at && account.expires_at < Date.now() / 1000 + 60)) {
             needsRefresh = true;
         } else {
             // Test token validity
@@ -1606,6 +1611,8 @@ export async function refreshTokenIfNeeded(account: any, provider: string): Prom
                 // Ignore network errors here, let the actual request fail if so
             }
         }
+    } else if (!account.access_token && account.refresh_token) {
+        needsRefresh = true;
     }
 
     if (needsRefresh && account.refresh_token) {
@@ -1725,7 +1732,7 @@ authRouter.get('/connections/:provider/token', requireAuth, async (req: Authenti
             }
         });
 
-        if (!account || !account.access_token) {
+        if (!account || (!account.access_token && !account.refresh_token)) {
             sendConnectionNotFound(res, provider);
             return;
         }
@@ -1774,7 +1781,7 @@ authRouter.post('/internal/tokens', async (req: Request, res: Response) => {
             }
         });
 
-        if (!account || !account.access_token) {
+        if (!account || (!account.access_token && !account.refresh_token)) {
             sendConnectionNotFound(res, provider);
             return;
         }
