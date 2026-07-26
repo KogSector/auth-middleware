@@ -145,8 +145,11 @@ export function toProfile(user: User): UserProfile {
         onboardingCompleted: user.onboardingCompleted,
         userIntent: user.userIntent,
         dashboardPreset: user.dashboardPreset,
+        subscriptionTier: user.subscriptionTier || 'free',
+        subscriptionStatus: user.subscriptionStatus || 'active',
     };
 }
+
 
 /**
  * Deletes a user account, including their FalkorDB graph and all related PostgreSQL data

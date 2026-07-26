@@ -10,6 +10,8 @@ import helmet from 'helmet';
 import { config } from './config.js';
 import authRouter from './auth.js';
 import { healthRoutes, userRoutes } from './routes/index.js';
+import billingRouter from './routes/billing.js';
+
 
 import { randomUUID } from 'crypto';
 import { logger, asyncLocalStorage } from './utils/logger.js';
@@ -103,6 +105,10 @@ app.use('/auth', authRouter);
 
 // User Profile & Onboarding API
 app.use('/api/v1/user', userRoutes);
+
+// Billing & Subscription API (LemonSqueezy)
+app.use('/api/v1/billing', billingRouter);
+
 
 // User Stats (Dashboard mock data)
 app.get('/api/users/stats', (req: Request, res: Response) => {

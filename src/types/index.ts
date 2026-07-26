@@ -21,6 +21,14 @@ export interface User {
     onboardingCompleted: boolean;
     userIntent: string | null;
     dashboardPreset: string | null;
+    subscriptionTier: string;
+    lemonSqueezyCustomerId?: string | null;
+    lemonSqueezySubscriptionId?: string | null;
+    lemonSqueezyVariantId?: string | null;
+    subscriptionStatus?: string | null;
+    subscriptionEndsAt?: Date | null;
+    monthlyRequestCount: number;
+    storageUsedBytes: bigint;
 }
 
 export interface UserProfile {
@@ -33,7 +41,10 @@ export interface UserProfile {
     onboardingCompleted: boolean;
     userIntent: string | null;
     dashboardPreset: string | null;
+    subscriptionTier: string;
+    subscriptionStatus?: string | null;
 }
+
 
 export interface CreateUserInput {
     auth0Sub: string;

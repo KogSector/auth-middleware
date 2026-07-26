@@ -22,11 +22,39 @@ model User {
   preferences          UserPreference?
   workspaceMemberships WorkspaceMember[]
   ownedWorkspaces      Workspace[]       @relation("WorkspaceOwner")
-  onboardingCompleted  Boolean           @default(false) @map("onboarding_completed")
-  userIntent           String?           @map("user_intent")
-  dashboardPreset      String?           @map("dashboard_preset")
+  onboardingCompleted        Boolean              @default(false) @map("onboarding_completed")
+  userIntent                 String?              @map("user_intent")
+  dashboardPreset            String?              @map("dashboard_preset")
+  subscriptionTier           String               @default("free") @map("subscription_tier")
+  lemonSqueezyCustomerId     String?              @map("lemonsqueezy_customer_id")
+  lemonSqueezySubscriptionId String?              @map("lemonsqueezy_subscription_id")
+  lemonSqueezyVariantId      String?              @map("lemonsqueezy_variant_id")
+  subscriptionStatus         String?              @default("active") @map("subscription_status")
+  subscriptionEndsAt         DateTime?            @map("subscription_ends_at")
+  monthlyRequestCount        Int                  @default(0) @map("monthly_request_count")
+  monthlyRequestResetAt      DateTime?            @map("monthly_request_reset_at")
+  storageUsedBytes           BigInt               @default(0) @map("storage_used_bytes")
+  ownedDbConnections         DatabaseConnection[] @relation("OwnerDbConnection")
+  joinedDbConnections        DatabaseConnection[] @relation("ConnectedUserDbConnection")
+
   @@map("users")
 }
+
+model DatabaseConnection {
+  id              String   @id @default(uuid()) @db.Uuid
+  ownerId         String   @map("owner_id") @db.Uuid
+  connectedUserId String   @map("connected_user_id") @db.Uuid
+  permission      String   @default("READ_ONLY") @map("permission")
+  createdAt       DateTime @default(now()) @map("created_at")
+  owner           User     @relation("OwnerDbConnection", fields: [ownerId], references: [id], onDelete: Cascade)
+  connectedUser   User     @relation("ConnectedUserDbConnection", fields: [connectedUserId], references: [id], onDelete: Cascade)
+
+  @@unique([ownerId, connectedUserId])
+  @@index([ownerId])
+  @@index([connectedUserId])
+  @@map("database_connections")
+}
+
 
 model Session {
   id                String    @id @default(uuid()) @db.Uuid

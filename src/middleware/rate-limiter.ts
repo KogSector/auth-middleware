@@ -158,12 +158,19 @@ const TIERS: Record<string, RateLimitTier> = {
     refresh: { maxRequests: 30, windowMs: 60_000 },     // 30 req/min for token refresh
     api: { maxRequests: 120, windowMs: 60_000 },        // 120 req/min general API
     sessions: { maxRequests: 30, windowMs: 60_000 },    // 30 req/min for session ops
+    pro_api: { maxRequests: 240, windowMs: 60_000 },    // 240 req/min for Pro
+    team_api: { maxRequests: 480, windowMs: 60_000 },   // 480 req/min for Team
+    enterprise_api: { maxRequests: 1000, windowMs: 60_000 }, // 1000 req/min for Enterprise
 };
 
-function getTierForPath(path: string): RateLimitTier {
+function getTierForPath(path: string, userTier: string = 'free'): RateLimitTier {
     if (path.includes('/auth0/exchange') || path.includes('/oauth')) return TIERS.auth;
     if (path.includes('/refresh')) return TIERS.refresh;
     if (path.includes('/sessions')) return TIERS.sessions;
+
+    if (userTier === 'pro') return TIERS.pro_api;
+    if (userTier === 'team') return TIERS.team_api;
+    if (userTier === 'enterprise') return TIERS.enterprise_api;
     return TIERS.api;
 }
 
@@ -184,7 +191,11 @@ function getClientKey(req: Request): string {
 export function rateLimitMiddleware() {
     return async (req: Request, res: Response, next: NextFunction): Promise<void> => {
         const clientKey = getClientKey(req);
-        const tier = getTierForPath(req.path);
+        const user = (req as unknown as import('../types/index.js').AuthenticatedRequest).user;
+        const userTier = typeof (user as any)?.subscription_tier === 'string' ? (user as any).subscription_tier : 'free';
+
+        const tier = getTierForPath(req.path, userTier);
+
         const redisKey = `ratelimit:auth:${clientKey}:${req.path.replace(/\//g, '_')}`;
 
         const result = await checkRateLimit(redisKey, tier.maxRequests, tier.windowMs);
@@ -207,4 +218,4 @@ export function rateLimitMiddleware() {
 
         next();
     };
-}
+}
