@@ -489,7 +489,8 @@ authRouter.post('/login', async (req: Request, res: Response) => {
         res.json(response);
 
     } catch (error) {
-        logger.error('[AUTH-LOGIN] Login error', { error });
+        const errObj = error instanceof Error ? { message: error.message, stack: error.stack, name: error.name } : error;
+        logger.error('[AUTH-LOGIN] Login error', { error: errObj });
         res.status(500).json({
             error: 'Internal server error',
             message: error instanceof Error ? error.message : 'Unknown error',

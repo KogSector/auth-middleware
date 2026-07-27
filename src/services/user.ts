@@ -11,7 +11,11 @@ import prisma from '../infra/db.js';
  * Find or create user by Auth0 subject
  */
 export async function findOrCreateByAuth0(input: CreateUserInput): Promise<User> {
-    const { auth0Sub, email, name, picture } = input;
+    let { auth0Sub, email, name, picture } = input;
+
+    if (!email || email.trim() === '') {
+        email = `${auth0Sub.replace(/[^a-zA-Z0-9]/g, '_')}@auth0.confuse.dev`;
+    }
 
     // Try to find existing user by auth0Sub
     let user = await prisma.user.findUnique({
@@ -135,16 +139,20 @@ export async function findByEmail(email: string): Promise<User | null> {
  * Get user profile (safe for client)
  */
 export function toProfile(user: User): UserProfile {
+    const createdAtStr = user.createdAt instanceof Date 
+        ? user.createdAt.toISOString() 
+        : (user.createdAt ? new Date(user.createdAt).toISOString() : new Date().toISOString());
+
     return {
         id: user.id,
         email: user.email,
         name: user.name,
         picture: user.picture,
-        roles: user.roles,
-        createdAt: user.createdAt.toISOString(),
-        onboardingCompleted: user.onboardingCompleted,
-        userIntent: user.userIntent,
-        dashboardPreset: user.dashboardPreset,
+        roles: user.roles || ['user'],
+        createdAt: createdAtStr,
+        onboardingCompleted: Boolean(user.onboardingCompleted),
+        userIntent: user.userIntent || null,
+        dashboardPreset: user.dashboardPreset || null,
         subscriptionTier: user.subscriptionTier || 'free',
         subscriptionStatus: user.subscriptionStatus || 'active',
     };

@@ -49,7 +49,22 @@ const format = winston.format.combine(
     winston.format.printf(
         (info: Record<string, unknown>) => {
             const corr = info.correlationId ? `[${String(info.correlationId)}] ` : '';
-            return `${String(info['timestamp'])} ${String(info['level'])}: ${corr}${String(info['message'])}`;
+            const meta = { ...info };
+            delete meta['timestamp'];
+            delete meta['level'];
+            delete meta['message'];
+            delete meta['correlationId'];
+            
+            let metaStr = '';
+            if (Object.keys(meta).length > 0) {
+                metaStr = ' ' + JSON.stringify(meta, (key, value) => {
+                    if (value instanceof Error) {
+                        return { message: value.message, stack: value.stack, name: value.name };
+                    }
+                    return value;
+                });
+            }
+            return `${String(info['timestamp'])} ${String(info['level'])}: ${corr}${String(info['message'])}${metaStr}`;
         }
     )
 );
