@@ -168,8 +168,8 @@ export async function verifyAuth0Token(token: string): Promise<Auth0Claims> {
     // Check cache first
     const tokenHash = hashToken(token);
     const cached = await tokenCache.getToken(tokenHash);
-    if (cached) {
-        // Convert CachedToken back to Auth0Claims format
+    if (cached && cached.email) {
+        // Only use cache if email was captured (Auth0 access tokens may not embed email in JWT)
         return {
             sub: cached.userId,
             email: cached.email,
