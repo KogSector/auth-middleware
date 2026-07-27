@@ -57,16 +57,17 @@ export const TIER_CONFIGS: Record<string, TierLimits> = {
 };
 
 export const VARIANT_TO_TIER_MAP: Record<string, string> = {
-    '1950940': 'pro',
-    '1950955': 'team',
-    '1950957': 'enterprise',
+    [config.lemonSqueezy.products.pro.variantId || '1950940']: 'pro',
+    [config.lemonSqueezy.products.team.variantId || '1950955']: 'team',
+    [config.lemonSqueezy.products.enterprise.variantId || '1950957']: 'enterprise',
 };
 
 export const TIER_TO_VARIANT_MAP: Record<string, string> = {
-    pro: '1950940',
-    team: '1950955',
-    enterprise: '1950957',
+    pro: config.lemonSqueezy.products.pro.variantId || '1950940',
+    team: config.lemonSqueezy.products.team.variantId || '1950955',
+    enterprise: config.lemonSqueezy.products.enterprise.variantId || '1950957',
 };
+
 
 export const BUY_URL_MAP: Record<string, string> = {
     pro: 'https://tryconfuse.lemonsqueezy.com/checkout/buy/dc2fe0c0-8fc8-4b14-8bc8-42b1b93d6610',
