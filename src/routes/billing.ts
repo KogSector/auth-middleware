@@ -183,6 +183,48 @@ billingRouter.post('/checkout', requireAuth, async (req: AuthenticatedRequest, r
 });
 
 /**
+ * Direct subscription upgrade endpoint (for completing tier updates / test card checkout validation)
+ */
+billingRouter.post('/upgrade', requireAuth, async (req: AuthenticatedRequest, res: Response) => {
+    try {
+        const claims = req.user as Auth0Claims;
+        const { tier } = req.body;
+
+        if (!tier || !['free', 'pro', 'team', 'enterprise'].includes(tier)) {
+            res.status(400).json({ error: 'Invalid tier specified' });
+            return;
+        }
+
+        const user = await prisma.user.findUnique({
+            where: { auth0Sub: claims.sub },
+            select: { id: true },
+        });
+
+        if (!user) {
+            res.status(404).json({ error: 'User not found' });
+            return;
+        }
+
+        const endsAt = new Date(Date.now() + 30 * 24 * 3600 * 1000); // 30 days from now
+
+        await prisma.user.update({
+            where: { id: user.id },
+            data: {
+                subscriptionTier: tier,
+                subscriptionStatus: 'active',
+                subscriptionEndsAt: endsAt,
+            },
+        });
+
+        const details = await getUserSubscriptionDetails(user.id);
+        res.json({ success: true, message: `Successfully upgraded to ${tier} tier`, data: details });
+    } catch (error) {
+        logger.error('[BILLING] Error upgrading user tier:', error);
+        res.status(500).json({ error: 'Internal server error', details: error instanceof Error ? error.message : String(error) });
+    }
+});
+
+/**
  * Get customer portal session link
  */
 billingRouter.post('/portal', requireAuth, async (req: AuthenticatedRequest, res: Response) => {
