@@ -1,8 +1,7 @@
 /**
- * ConFuse Billing & Subscription Service (LemonSqueezy Integration)
+ * ConFuse Billing & Subscription Service
  */
 
-import crypto from 'crypto';
 import prisma from '../infra/db.js';
 import { config } from '../config.js';
 import { logger } from '../utils/logger.js';
@@ -56,25 +55,6 @@ export const TIER_CONFIGS: Record<string, TierLimits> = {
     },
 };
 
-export const VARIANT_TO_TIER_MAP: Record<string, string> = {
-    [config.lemonSqueezy.products.pro.variantId || '1950940']: 'pro',
-    [config.lemonSqueezy.products.team.variantId || '1950955']: 'team',
-    [config.lemonSqueezy.products.enterprise.variantId || '1950957']: 'enterprise',
-};
-
-export const TIER_TO_VARIANT_MAP: Record<string, string> = {
-    pro: config.lemonSqueezy.products.pro.variantId || '1950940',
-    team: config.lemonSqueezy.products.team.variantId || '1950955',
-    enterprise: config.lemonSqueezy.products.enterprise.variantId || '1950957',
-};
-
-
-export const BUY_URL_MAP: Record<string, string> = {
-    pro: 'https://tryconfuse.lemonsqueezy.com/checkout/buy/dc2fe0c0-8fc8-4b14-8bc8-42b1b93d6610',
-    team: 'https://tryconfuse.lemonsqueezy.com/checkout/buy/fc9e1c35-1284-4e66-90c5-b8fd06e24fb5',
-    enterprise: 'https://tryconfuse.lemonsqueezy.com/checkout/buy/85924e78-5dae-40b2-bc55-9d7dac547e1d',
-};
-
 /**
  * Fetch current user subscription state and quota usage
  */
@@ -88,9 +68,6 @@ export async function getUserSubscriptionDetails(userId: string) {
             subscriptionTier: true,
             subscriptionStatus: true,
             subscriptionEndsAt: true,
-            lemonSqueezyCustomerId: true,
-            lemonSqueezySubscriptionId: true,
-            lemonSqueezyVariantId: true,
             monthlyRequestCount: true,
             monthlyRequestResetAt: true,
             storageUsedBytes: true,
@@ -127,9 +104,6 @@ export async function getUserSubscriptionDetails(userId: string) {
             tier,
             status: user.subscriptionStatus || 'active',
             endsAt: user.subscriptionEndsAt,
-            customerId: user.lemonSqueezyCustomerId,
-            subscriptionId: user.lemonSqueezySubscriptionId,
-            variantId: user.lemonSqueezyVariantId,
         },
         limits: {
             maxRepos: tierConfig.maxRepos,
@@ -153,205 +127,17 @@ export async function getUserSubscriptionDetails(userId: string) {
 }
 
 /**
- * Create a LemonSqueezy Checkout Session
+ * Create a Checkout Session
  */
 export async function createCheckoutSession(userId: string, targetTier: string): Promise<{ checkoutUrl: string }> {
-    const variantId = TIER_TO_VARIANT_MAP[targetTier];
-    if (!variantId) {
-        throw new Error(`Invalid subscription tier: ${targetTier}`);
-    }
-
-    const user = await prisma.user.findUnique({
-        where: { id: userId },
-        select: { email: true, name: true },
-    });
-
-    if (!user) throw new Error('User not found');
-
-    const apiKey = config.lemonSqueezy.apiKey;
-    const storeId = config.lemonSqueezy.storeId;
-
-    try {
-        const response = await fetch('https://api.lemonsqueezy.com/v1/checkouts', {
-            method: 'POST',
-            headers: {
-                'Authorization': `Bearer ${apiKey}`,
-                'Content-Type': 'application/vnd.api+json',
-                'Accept': 'application/vnd.api+json',
-            },
-            body: JSON.stringify({
-                data: {
-                    type: 'checkouts',
-                    attributes: {
-                        checkout_data: {
-                            email: user.email,
-                            name: user.name || undefined,
-                            custom: {
-                                user_id: userId,
-                                tier: targetTier,
-                            },
-                        },
-                    },
-                    relationships: {
-                        store: {
-                            data: {
-                                type: 'stores',
-                                id: storeId,
-                            },
-                        },
-                        variant: {
-                            data: {
-                                type: 'variants',
-                                id: variantId,
-                            },
-                        },
-                    },
-                },
-            }),
-        });
-
-        if (!response.ok) {
-            const errText = await response.text();
-            logger.warn(`[LEMONSQUEEZY] API checkout failed (${response.status}): ${errText}. Falling back to buy URL.`);
-            const fallbackUrl = BUY_URL_MAP[targetTier];
-            return { checkoutUrl: `${fallbackUrl}?checkout[custom][user_id]=${userId}` };
-        }
-
-        const data = await response.json();
-        const checkoutUrl = data?.data?.attributes?.url;
-        if (!checkoutUrl) {
-            const fallbackUrl = BUY_URL_MAP[targetTier];
-            return { checkoutUrl: `${fallbackUrl}?checkout[custom][user_id]=${userId}` };
-        }
-
-        return { checkoutUrl };
-    } catch (err) {
-        logger.error('[LEMONSQUEEZY] Error creating checkout session:', err);
-        const fallbackUrl = BUY_URL_MAP[targetTier];
-        return { checkoutUrl: `${fallbackUrl}?checkout[custom][user_id]=${userId}` };
-    }
+    return { checkoutUrl: '/billing' };
 }
 
 /**
- * Get Customer Portal URL or fallback portal
+ * Get Customer Portal URL
  */
 export async function getCustomerPortalUrl(userId: string): Promise<{ portalUrl: string }> {
-    const user = await prisma.user.findUnique({
-        where: { id: userId },
-        select: { lemonSqueezyCustomerId: true },
-    });
-
-    if (user?.lemonSqueezyCustomerId) {
-        try {
-            const response = await fetch(`https://api.lemonsqueezy.com/v1/customers/${user.lemonSqueezyCustomerId}`, {
-                headers: {
-                    'Authorization': `Bearer ${config.lemonSqueezy.apiKey}`,
-                    'Accept': 'application/vnd.api+json',
-                },
-            });
-            if (response.ok) {
-                const data = await response.json();
-                const portalUrl = data?.data?.attributes?.urls?.customer_portal;
-                if (portalUrl) return { portalUrl };
-            }
-        } catch (err) {
-            logger.warn('[LEMONSQUEEZY] Failed to fetch customer portal:', err);
-        }
-    }
-
-    return { portalUrl: 'https://tryconfuse.lemonsqueezy.com/billing' };
-}
-
-/**
- * Verify Webhook Signature HMAC SHA-256
- */
-export function verifyWebhookSignature(rawBody: string | Buffer, signatureHeader: string): boolean {
-    const secret = config.lemonSqueezy.webhookSecret;
-    if (!secret || !signatureHeader) return false;
-
-    const hmac = crypto.createHmac('sha256', secret);
-    const digest = Buffer.from(hmac.update(rawBody).digest('hex'), 'utf8');
-    const signature = Buffer.from(signatureHeader, 'utf8');
-
-    if (digest.length !== signature.length) return false;
-    return crypto.timingSafeEqual(digest, signature);
-}
-
-/**
- * Process LemonSqueezy Webhook Payload
- */
-export async function processLemonSqueezyWebhook(payload: any): Promise<void> {
-    const eventName = payload?.meta?.event_name;
-    const customData = payload?.meta?.custom_data;
-    const attributes = payload?.data?.attributes;
-
-    logger.info(`[LEMONSQUEEZY-WEBHOOK] Received event: ${eventName}`, { customData });
-
-    const userId = customData?.user_id;
-    const customerId = attributes?.customer_id ? String(attributes.customer_id) : null;
-    const subscriptionId = payload?.data?.id ? String(payload.data.id) : null;
-    const variantId = attributes?.variant_id ? String(attributes.variant_id) : null;
-    const status = attributes?.status || 'active';
-    const endsAt = attributes?.ends_at ? new Date(attributes.ends_at) : null;
-
-    // Determine target tier from variant ID or custom data
-    let targetTier = customData?.tier;
-    if (!targetTier && variantId && VARIANT_TO_TIER_MAP[variantId]) {
-        targetTier = VARIANT_TO_TIER_MAP[variantId];
-    }
-
-    if (eventName === 'subscription_created' || eventName === 'subscription_updated' || eventName === 'subscription_resumed') {
-        const finalTier = targetTier || 'pro';
-        if (userId) {
-            await prisma.user.update({
-                where: { id: userId },
-                data: {
-                    subscriptionTier: finalTier,
-                    subscriptionStatus: status,
-                    subscriptionEndsAt: endsAt,
-                    lemonSqueezyCustomerId: customerId,
-                    lemonSqueezySubscriptionId: subscriptionId,
-                    lemonSqueezyVariantId: variantId,
-                },
-            });
-            logger.info(`[LEMONSQUEEZY-WEBHOOK] Updated user ${userId} to tier ${finalTier}`);
-        } else if (customerId) {
-            // Find by customerId
-            await prisma.user.updateMany({
-                where: { lemonSqueezyCustomerId: customerId },
-                data: {
-                    subscriptionTier: finalTier,
-                    subscriptionStatus: status,
-                    subscriptionEndsAt: endsAt,
-                    lemonSqueezySubscriptionId: subscriptionId,
-                    lemonSqueezyVariantId: variantId,
-                },
-            });
-        }
-    } else if (eventName === 'subscription_cancelled' || eventName === 'subscription_expired') {
-        const newStatus = eventName === 'subscription_cancelled' ? 'cancelled' : 'expired';
-        const fallbackTier = eventName === 'subscription_expired' ? 'free' : undefined;
-
-        if (userId) {
-            await prisma.user.update({
-                where: { id: userId },
-                data: {
-                    subscriptionStatus: newStatus,
-                    subscriptionEndsAt: endsAt,
-                    ...(fallbackTier ? { subscriptionTier: fallbackTier } : {}),
-                },
-            });
-        } else if (customerId) {
-            await prisma.user.updateMany({
-                where: { lemonSqueezyCustomerId: customerId },
-                data: {
-                    subscriptionStatus: newStatus,
-                    subscriptionEndsAt: endsAt,
-                    ...(fallbackTier ? { subscriptionTier: fallbackTier } : {}),
-                },
-            });
-        }
-    }
+    return { portalUrl: '/billing' };
 }
 
 /**

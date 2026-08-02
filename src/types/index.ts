@@ -22,9 +22,6 @@ export interface User {
     userIntent: string | null;
     dashboardPreset: string | null;
     subscriptionTier: string;
-    lemonSqueezyCustomerId?: string | null;
-    lemonSqueezySubscriptionId?: string | null;
-    lemonSqueezyVariantId?: string | null;
     subscriptionStatus?: string | null;
     subscriptionEndsAt?: Date | null;
     monthlyRequestCount: number;

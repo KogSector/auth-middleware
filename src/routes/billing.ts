@@ -11,8 +11,6 @@ import {
     getUserSubscriptionDetails,
     createCheckoutSession,
     getCustomerPortalUrl,
-    verifyWebhookSignature,
-    processLemonSqueezyWebhook,
     TIER_CONFIGS,
 } from '../services/billing.js';
 import { logger } from '../utils/logger.js';
@@ -249,28 +247,10 @@ billingRouter.post('/portal', requireAuth, async (req: AuthenticatedRequest, res
 });
 
 /**
- * LemonSqueezy Webhook Receiver (Raw body parsed)
+ * Billing Webhook Receiver Stub
  */
-billingRouter.post('/webhook', express.raw({ type: 'application/json' }), async (req: Request, res: Response) => {
-    try {
-        const signatureHeader = (req.headers['x-signature'] as string) || '';
-        const rawBody = req.body;
-
-        // Verify webhook signature if provided
-        if (signatureHeader && !verifyWebhookSignature(rawBody, signatureHeader)) {
-            logger.warn('[BILLING-WEBHOOK] Invalid HMAC signature detected.');
-            res.status(401).json({ error: 'Invalid signature' });
-            return;
-        }
-
-        const payload = typeof rawBody === 'string' ? JSON.parse(rawBody) : JSON.parse(rawBody.toString('utf8'));
-        await processLemonSqueezyWebhook(payload);
-
-        res.status(200).json({ success: true, message: 'Webhook processed successfully' });
-    } catch (error) {
-        logger.error('[BILLING-WEBHOOK] Error processing webhook:', error);
-        res.status(500).json({ error: 'Webhook handler error' });
-    }
+billingRouter.post('/webhook', express.raw({ type: 'application/json' }), async (_req: Request, res: Response) => {
+    res.status(200).json({ success: true, message: 'Webhook endpoint active' });
 });
 
 export default billingRouter;

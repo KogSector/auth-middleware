@@ -53,16 +53,6 @@ interface Config {
     bitbucket: OAuthProviderConfig;
     microsoft: OAuthProviderConfig & { tenantId?: string };
     dropbox: OAuthProviderConfig;
-    lemonSqueezy: {
-        apiKey: string;
-        storeId: string;
-        webhookSecret: string;
-        products: {
-            pro: { productId: string; variantId: string };
-            team: { productId: string; variantId: string };
-            enterprise: { productId: string; variantId: string };
-        };
-    };
 }
 
 
@@ -150,25 +140,6 @@ export const config: Config = {
         clientId: process.env.DROPBOX_CLIENT_ID,
         clientSecret: process.env.DROPBOX_CLIENT_SECRET,
         redirectUri: process.env.DROPBOX_REDIRECT_URI?.trim() || process.env.OAUTH_CALLBACK_URL?.trim(),
-    },
-    lemonSqueezy: {
-        apiKey: process.env.LEMONSQUEEZY_API_KEY || 'eyJ0eXAiOiJKV1QiLCJhbGciOiJSUzI1NiJ9.eyJhdWQiOiI5NGQ1OWNlZi1kYmI4LTRlYTUtYjE3OC1kMjU0MGZjZDY5MTkiLCJqdGkiOiJjZTJjYzM4NTY2OTg4NjAwN2U4MzNiMTdhMGUzMTlkOTdiNDA5Y2RhZmYxNjgwMzRkNTcxNGY2MTgwM2RmZGU0ZDM2MGU2Mjg2NTVhY2Y0NyIsImlhdCI6MTc4NTA4OTI0MS4yNzI1MTcsIm5iZiI6MTc4NTA4OTI0MS4yNzI1MiwiZXhwIjo1MDQ5MDQzMjAwLjAyNjE5MSwic3ViIjoiNzYzNDcyNCIsInNjb3BlcyI6W119.dqAfkSqjRT3E2nZPZBP4nDm7b5_wT7cdKSM1KLiavgilDPV1Bq5MDajZFtMZW1sR_c5-Rq18PXJHoklEWoY0F6PMKBMvMDerfS-gVR7xf1yDV7ehjotd7pfV_Kx6BqG-kK6uzyH_7MbWW8wKYspsOMQIMdRCzHCTVEQcNc6y_o4auRiIvfZbB4FH3sQgsppiJsp4zwA4EJpge28b2E_D_YFksQJYN9U7oAPRz0uutrjUXaYUR3ZK0ah0iDongQYTmuAhpzf3nvkerFtxkH_ipGB282QmE1-yd_DTV3bIexILM2eQ-bLk20CbkuQ_Kke-uGlOx6ECIaJyRdeOgZBBa5f8IDa7mR1ylRm2HWn9jd3JifNP8G8t1ZqSCsQ0jzmvc6s6hetzRKiT_FmmPgdLWsY34tD5XUhDZlbXuoyGqsVNnEFEPZmnWUxbvJ8nC0pfNVxoF-TQRNWhReE9Z03Q6C83JqCr0yzx52ysmxOmpyS7K1yiikQZ7i-nMqaI-Z1rCG1iovZDEAvwZVJ-j8PQp23Vhzfy77Vu5FF5zirTWQ5taP0Vs17021lhef6qeWbPjZPhdgY8hEJCEsrV_i89CKolp57uxqTphCUDVjiVpfUlPveecq80jc__lfZpW17lpC6H-98Pr2dpPoC5pKnl4IgakU09tqC5-5frnz8sTQI',
-        storeId: process.env.LEMONSQUEEZY_STORE_ID || '437446',
-        webhookSecret: process.env.LEMONSQUEEZY_WEBHOOK_SECRET || 'confuse_ls_wh_secret_2026',
-        products: {
-            pro: {
-                productId: process.env.LEMONSQUEEZY_PRO_PRODUCT_ID || '1248033',
-                variantId: process.env.LEMONSQUEEZY_PRO_VARIANT_ID || '1950940',
-            },
-            team: {
-                productId: process.env.LEMONSQUEEZY_TEAM_PRODUCT_ID || '1248041',
-                variantId: process.env.LEMONSQUEEZY_TEAM_VARIANT_ID || '1950955',
-            },
-            enterprise: {
-                productId: process.env.LEMONSQUEEZY_ENTERPRISE_PRODUCT_ID || '1248043',
-                variantId: process.env.LEMONSQUEEZY_ENTERPRISE_VARIANT_ID || '1950957',
-            },
-        },
     },
 };
 

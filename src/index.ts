@@ -106,7 +106,7 @@ app.use('/auth', authRouter);
 // User Profile & Onboarding API
 app.use('/api/v1/user', userRoutes);
 
-// Billing & Subscription API (LemonSqueezy)
+// Billing & Subscription API
 app.use('/api/v1/billing', billingRouter);
 
 
