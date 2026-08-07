@@ -14,6 +14,8 @@ import { logger } from '../utils/logger.js';
 
 let redisClient: RedisClientType | null = null;
 let redisAvailable = false;
+let fallbackWarningLogged = false;
+let connectedLogged = false;
 
 export async function initRedis(): Promise<void> {
     try {
@@ -31,20 +33,28 @@ export async function initRedis(): Promise<void> {
             disableOfflineQueue: false
         });
         redisClient.on('error', (err) => {
-            if (redisAvailable) {
-                logger.warn(`[RATE-LIMIT] Redis error, falling back to in-memory: ${err.message}`);
-                redisAvailable = false;
+            redisAvailable = false;
+            if (!fallbackWarningLogged) {
+                logger.warn(`[RATE-LIMIT] Redis unavailable, using in-memory fallback: ${err.message}`);
+                fallbackWarningLogged = true;
             }
         });
         redisClient.on('connect', () => {
             redisAvailable = true;
-            logger.info('[RATE-LIMIT] Redis connected');
+            fallbackWarningLogged = false;
+            if (!connectedLogged) {
+                logger.info('[RATE-LIMIT] Redis connected');
+                connectedLogged = true;
+            }
         });
         await redisClient.connect();
         redisAvailable = true;
     } catch (err) {
-        logger.warn(`[RATE-LIMIT] Redis unavailable, using in-memory fallback: ${err}`);
         redisAvailable = false;
+        if (!fallbackWarningLogged) {
+            logger.warn(`[RATE-LIMIT] Redis unavailable, using in-memory fallback: ${err}`);
+            fallbackWarningLogged = true;
+        }
     }
 }
 
@@ -218,4 +228,4 @@ export function rateLimitMiddleware() {
 
         next();
     };
-}
+}
