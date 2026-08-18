@@ -736,7 +736,7 @@ authRouter.get('/connections', requireAuth, async (req: AuthenticatedRequest, re
             }
         });
 
-        const data = connections.map(c => ({
+        const data = connections.map((c: { providerAccountId: string; provider: string; type: string; scope: string | null }) => ({
             id: c.providerAccountId,
             platform: c.provider === 'google' ? 'google_drive' : (['windowslive', 'waad', 'microsoft', 'onedrive'].includes(c.provider) ? 'onedrive' : c.provider),
             type: c.type,
