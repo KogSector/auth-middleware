@@ -1,7 +1,7 @@
 {
     "name": "confuse-auth-middleware",
     "version": "1.0.0",
-    "description": "ConFuse Auth Middleware - Auth0-based authentication for all microservices",
+    "description": "ConFuse Auth Middleware - Auth0-based authentication for all microservices - Build fix",
     "type": "module",
     "main": "dist/index.js",
     "scripts": {
