@@ -3,10 +3,23 @@ import path from 'path';
 import fs from 'fs';
 import { AsyncLocalStorage } from 'async_hooks';
 
-// Ensure logs directory exists
+// Check if we're in a serverless environment (read-only file system)
+const isServerless = process.env.VERCEL || process.env.AWS_LAMBDA_FUNCTION_NAME || process.env.FUNCTION_NAME;
+
+// Ensure logs directory exists (only in non-serverless environments)
 const logDir = 'logs';
-if (!fs.existsSync(logDir)) {
-    fs.mkdirSync(logDir);
+let fileLoggingEnabled = false;
+
+if (!isServerless) {
+    try {
+        if (!fs.existsSync(logDir)) {
+            fs.mkdirSync(logDir);
+        }
+        fileLoggingEnabled = true;
+    } catch (error) {
+        // If we can't create the logs directory, disable file logging
+        console.warn('Cannot create logs directory, file logging disabled');
+    }
 }
 
 // Async local storage for correlation ID
@@ -69,32 +82,38 @@ const format = winston.format.combine(
     )
 );
 
-const transports = [
+const transports: winston.transport[] = [
     new winston.transports.Console({
         format, // Use colorized format for console
     }),
-    new winston.transports.File({
-        filename: path.join(logDir, 'error.log'),
-        level: 'error',
-        format: winston.format.combine(
-            addCorrelationId(),
-            winston.format.uncolorize(),
-            winston.format.json()
-        ),
-        maxsize: 5242880, // 5MB
-        maxFiles: 5,
-    }),
-    new winston.transports.File({
-        filename: path.join(logDir, 'app.log'),
-        format: winston.format.combine(
-            addCorrelationId(),
-            winston.format.uncolorize(),
-            winston.format.json()
-        ),
-        maxsize: 10485760, // 10MB
-        maxFiles: 5,
-    }),
 ];
+
+// Only add file transports if file logging is enabled
+if (fileLoggingEnabled) {
+    transports.push(
+        new winston.transports.File({
+            filename: path.join(logDir, 'error.log'),
+            level: 'error',
+            format: winston.format.combine(
+                addCorrelationId(),
+                winston.format.uncolorize(),
+                winston.format.json()
+            ),
+            maxsize: 5242880, // 5MB
+            maxFiles: 5,
+        }),
+        new winston.transports.File({
+            filename: path.join(logDir, 'app.log'),
+            format: winston.format.combine(
+                addCorrelationId(),
+                winston.format.uncolorize(),
+                winston.format.json()
+            ),
+            maxsize: 10485760, // 10MB
+            maxFiles: 5,
+        })
+    );
+}
 
 export const logger = winston.createLogger({
     level: process.env.NODE_ENV === 'development' ? 'debug' : 'info',
