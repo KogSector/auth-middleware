@@ -30,8 +30,8 @@ RUN npm prune --omit=dev 2>/dev/null || true
 # Production stage
 FROM node:22-slim
 
-# Install OpenSSL (for Prisma), dumb-init (proper signal handling), and wget (health checks)
-RUN apt-get update && apt-get install -y openssl dumb-init wget && rm -rf /var/lib/apt/lists/*
+# Install OpenSSL (for Prisma), dumb-init (proper signal handling), and curl (health checks)
+RUN apt-get update && apt-get install -y openssl dumb-init curl && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
 
@@ -62,9 +62,9 @@ RUN mkdir -p keys && chown node:node keys
 # Set environment
 ENV NODE_ENV=production
 
-# Health check optimized for Cloud Run/Render
+# Health check optimized for Render
 HEALTHCHECK --interval=30s --timeout=10s --start-period=60s --retries=3 \
-    CMD wget --no-verbose --tries=1 --spider http://localhost:${PORT}/health || exit 1
+    CMD curl -f http://localhost:${PORT}/health || exit 1
 
 # Use dumb-init to pass signals correctly (crucial for Cloud Run graceful shutdowns)
 ENTRYPOINT ["dumb-init", "--"]
