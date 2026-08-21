@@ -270,7 +270,7 @@ billingRouter.post('/internal/update-repo-count', async (req: Request, res: Resp
 
         // Validate internal API key
         const apiKey = req.headers['x-api-key'] as string;
-        const config = (await import('../config.js')).default;
+        const config = (await import('../config.js')).config;
         if (apiKey !== config.internalApiKey) {
             res.status(401).json({ error: 'Unauthorized' });
             return;
@@ -299,7 +299,7 @@ billingRouter.post('/internal/update-doc-count', async (req: Request, res: Respo
 
         // Validate internal API key
         const apiKey = req.headers['x-api-key'] as string;
-        const config = (await import('../config.js')).default;
+        const config = (await import('../config.js')).config;
         if (apiKey !== config.internalApiKey) {
             res.status(401).json({ error: 'Unauthorized' });
             return;

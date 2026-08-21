@@ -277,45 +277,8 @@ export async function checkDocLimit(userId: string): Promise<{ allowed: boolean;
 
 /**
  * Team Database User Connection Check (Max 3 users for Team tier, Read-Only ONLY)
+ * Feature disabled - database connections table removed
  */
 export async function connectTeamUserToDatabase(ownerUserId: string, targetUserId: string): Promise<{ success: boolean; message: string }> {
-    const owner = await prisma.user.findUnique({
-        where: { id: ownerUserId },
-        select: { subscriptionTier: true },
-    });
-
-    const tier = owner?.subscriptionTier || 'free';
-    const tierConfig = TIER_CONFIGS[tier] || TIER_CONFIGS.free;
-
-    if (tierConfig.maxConnectedUsers <= 0) {
-        return { success: false, message: 'Your subscription tier does not support multi-user database connections. Please upgrade to Team or Enterprise tier.' };
-    }
-
-    const currentConnectedCount = await prisma.databaseConnection.count({
-        where: { ownerId: ownerUserId },
-    });
-
-    if (currentConnectedCount >= tierConfig.maxConnectedUsers) {
-        return { success: false, message: `Maximum connected database users limit reached (${tierConfig.maxConnectedUsers} users max).` };
-    }
-
-    // Connect user with strictly READ_ONLY permission
-    await prisma.databaseConnection.upsert({
-        where: {
-            ownerId_connectedUserId: {
-                ownerId: ownerUserId,
-                connectedUserId: targetUserId,
-            },
-        },
-        create: {
-            ownerId: ownerUserId,
-            connectedUserId: targetUserId,
-            permission: 'READ_ONLY',
-        },
-        update: {
-            permission: 'READ_ONLY',
-        },
-    });
-
-    return { success: true, message: 'User successfully connected to database in READ_ONLY mode.' };
+    return { success: false, message: 'Database connection feature is currently disabled.' };
 }
