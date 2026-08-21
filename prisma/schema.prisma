@@ -119,6 +119,7 @@ model BillingUsage {
   reposCount         Int      @default(0) @map("repos_count")
   docsCount          Int      @default(0) @map("docs_count")
   lastUpdated        DateTime @updatedAt @map("last_updated")
+  user              User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@map("billing_usage")
 }
