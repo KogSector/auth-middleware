@@ -79,20 +79,24 @@ export async function getUserSubscriptionDetails(userId: string) {
     const tier = user.subscriptionTier || 'free';
     const tierConfig = TIER_CONFIGS[tier] || TIER_CONFIGS.free;
 
-    // Count repositories owned by user
-    const repoCount = await prisma.repositories.count({
-        where: { user_id: userId },
+    // Get or create billing usage record
+    let billingUsage = await prisma.billingUsage.findUnique({
+        where: { userId },
     });
 
-    // Count documents / sources owned by user
-    const docCount = await prisma.sources.count({
-        where: { user_id: userId },
-    });
+    if (!billingUsage) {
+        billingUsage = await prisma.billingUsage.create({
+            data: {
+                userId,
+                subscriptionTier: tier,
+                reposCount: 0,
+                docsCount: 0,
+            },
+        });
+    }
 
-    // Count connected database users (for Team Tier)
-    const connectedUsersCount = await prisma.databaseConnection.count({
-        where: { ownerId: userId },
-    });
+    const repoCount = billingUsage.reposCount;
+    const docCount = billingUsage.docsCount;
 
     return {
         user: {
@@ -121,7 +125,6 @@ export async function getUserSubscriptionDetails(userId: string) {
             storageUsedBytes: user.storageUsedBytes.toString(),
             storageUsedMb: Number(user.storageUsedBytes / BigInt(1024 * 1024)),
             monthlyRequestCount: user.monthlyRequestCount,
-            connectedUsersCount,
         },
     };
 }
@@ -138,6 +141,58 @@ export async function createCheckoutSession(userId: string, targetTier: string):
  */
 export async function getCustomerPortalUrl(userId: string): Promise<{ portalUrl: string }> {
     return { portalUrl: '/billing' };
+}
+
+/**
+ * Update repository count for user
+ */
+export async function updateRepoCount(userId: string, delta: number): Promise<void> {
+    const billingUsage = await prisma.billingUsage.findUnique({
+        where: { userId },
+    });
+
+    if (billingUsage) {
+        await prisma.billingUsage.update({
+            where: { userId },
+            data: {
+                reposCount: Math.max(0, billingUsage.reposCount + delta),
+            },
+        });
+    } else {
+        await prisma.billingUsage.create({
+            data: {
+                userId,
+                reposCount: Math.max(0, delta),
+                docsCount: 0,
+            },
+        });
+    }
+}
+
+/**
+ * Update document count for user
+ */
+export async function updateDocCount(userId: string, delta: number): Promise<void> {
+    const billingUsage = await prisma.billingUsage.findUnique({
+        where: { userId },
+    });
+
+    if (billingUsage) {
+        await prisma.billingUsage.update({
+            where: { userId },
+            data: {
+                docsCount: Math.max(0, billingUsage.docsCount + delta),
+            },
+        });
+    } else {
+        await prisma.billingUsage.create({
+            data: {
+                userId,
+                reposCount: 0,
+                docsCount: Math.max(0, delta),
+            },
+        });
+    }
 }
 
 /**
@@ -178,9 +233,11 @@ export async function checkRepoLimit(userId: string): Promise<{ allowed: boolean
         return { allowed: true, currentCount: 0, maxRepos: null };
     }
 
-    const currentCount = await prisma.repositories.count({
-        where: { user_id: userId },
+    const billingUsage = await prisma.billingUsage.findUnique({
+        where: { userId },
     });
+
+    const currentCount = billingUsage?.reposCount || 0;
 
     return {
         allowed: currentCount < tierConfig.maxRepos,
@@ -205,9 +262,11 @@ export async function checkDocLimit(userId: string): Promise<{ allowed: boolean;
         return { allowed: true, currentCount: 0, maxDocs: null };
     }
 
-    const currentCount = await prisma.sources.count({
-        where: { user_id: userId },
+    const billingUsage = await prisma.billingUsage.findUnique({
+        where: { userId },
     });
+
+    const currentCount = billingUsage?.docsCount || 0;
 
     return {
         allowed: currentCount < tierConfig.maxDocs,

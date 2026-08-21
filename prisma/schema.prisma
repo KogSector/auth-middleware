@@ -20,8 +20,7 @@ model User {
   apiKeys              ApiKey[]
   sessions             Session[]
   preferences          UserPreference?
-  workspaceMemberships WorkspaceMember[]
-  ownedWorkspaces      Workspace[]       @relation("WorkspaceOwner")
+  billingUsage         BillingUsage?
   onboardingCompleted        Boolean              @default(false) @map("onboarding_completed")
   userIntent                 String?              @map("user_intent")
   dashboardPreset            String?              @map("dashboard_preset")
@@ -31,27 +30,9 @@ model User {
   monthlyRequestCount        Int                  @default(0) @map("monthly_request_count")
   monthlyRequestResetAt      DateTime?            @map("monthly_request_reset_at")
   storageUsedBytes           BigInt               @default(0) @map("storage_used_bytes")
-  ownedDbConnections         DatabaseConnection[] @relation("OwnerDbConnection")
-  joinedDbConnections        DatabaseConnection[] @relation("ConnectedUserDbConnection")
 
   @@map("users")
 }
-
-model DatabaseConnection {
-  id              String   @id @default(uuid()) @db.Uuid
-  ownerId         String   @map("owner_id") @db.Uuid
-  connectedUserId String   @map("connected_user_id") @db.Uuid
-  permission      String   @default("READ_ONLY") @map("permission")
-  createdAt       DateTime @default(now()) @map("created_at")
-  owner           User     @relation("OwnerDbConnection", fields: [ownerId], references: [id], onDelete: Cascade)
-  connectedUser   User     @relation("ConnectedUserDbConnection", fields: [connectedUserId], references: [id], onDelete: Cascade)
-
-  @@unique([ownerId, connectedUserId])
-  @@index([ownerId])
-  @@index([connectedUserId])
-  @@map("database_connections")
-}
-
 
 model Session {
   id                String    @id @default(uuid()) @db.Uuid
@@ -94,125 +75,6 @@ model Account {
   @@map("accounts")
 }
 
-model LoginAttempt {
-  id            String   @id @default(uuid()) @db.Uuid
-  userId        String?  @map("user_id") @db.Uuid
-  email         String
-  ipAddress     String   @map("ip_address")
-  userAgent     String?  @map("user_agent")
-  success       Boolean
-  failureReason String?  @map("failure_reason")
-  createdAt     DateTime @default(now()) @map("created_at")
-
-  @@index([email])
-  @@index([ipAddress])
-  @@index([createdAt])
-  @@map("login_attempts")
-}
-
-model AccountLockout {
-  id          String    @id @default(uuid()) @db.Uuid
-  userId      String?   @map("user_id") @db.Uuid
-  email       String
-  ipAddress   String?   @map("ip_address")
-  lockedUntil DateTime  @map("locked_until")
-  lockLevel   Int       @default(1) @map("lock_level")
-  reason      String
-  createdAt   DateTime  @default(now()) @map("created_at")
-  unlockedAt  DateTime? @map("unlocked_at")
-
-  @@index([email])
-  @@index([ipAddress])
-  @@index([lockedUntil])
-  @@map("account_lockouts")
-}
-
-model TokenBlacklist {
-  id        String   @id @default(uuid()) @db.Uuid
-  tokenJti  String   @unique @map("token_jti")
-  userId    String   @map("user_id") @db.Uuid
-  reason    String
-  expiresAt DateTime @map("expires_at")
-  createdAt DateTime @default(now()) @map("created_at")
-
-  @@index([tokenJti])
-  @@index([expiresAt])
-  @@map("token_blacklist")
-}
-
-model AuditLog {
-  id        String   @id @default(uuid()) @db.Uuid
-  userId    String?  @map("user_id") @db.Uuid
-  action    String
-  resource  String
-  details   Json?
-  ipAddress String?  @map("ip_address")
-  userAgent String?  @map("user_agent")
-  createdAt DateTime @default(now()) @map("created_at")
-
-  @@index([userId])
-  @@index([action])
-  @@index([createdAt])
-  @@map("audit_logs")
-}
-
-model Workspace {
-  id             String            @id @default(uuid()) @db.Uuid
-  name           String
-  slug           String            @unique
-  description    String?
-  ownerId        String            @map("owner_id") @db.Uuid
-  createdAt      DateTime          @default(now()) @map("created_at")
-  updatedAt      DateTime          @updatedAt @map("updated_at")
-  isDefault      Boolean           @default(false) @map("is_default")
-  settings       Json?             @default("{}")
-  knowledgeBases KnowledgeBase[]
-  members        WorkspaceMember[]
-  owner          User              @relation("WorkspaceOwner", fields: [ownerId], references: [id], onDelete: Cascade)
-
-  @@index([ownerId])
-  @@index([slug])
-  @@map("workspaces")
-}
-
-model WorkspaceMember {
-  id          String    @id @default(uuid()) @db.Uuid
-  workspaceId String    @map("workspace_id") @db.Uuid
-  userId      String    @map("user_id") @db.Uuid
-  role        String    @default("member")
-  joinedAt    DateTime  @default(now()) @map("joined_at")
-  user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
-  workspace   Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
-
-  @@unique([workspaceId, userId])
-  @@index([userId])
-  @@map("workspace_members")
-}
-
-model KnowledgeBase {
-  id               String    @id @default(uuid()) @db.Uuid
-  workspaceId      String    @map("workspace_id") @db.Uuid
-  name             String
-  description      String?
-  type             String    @default("general")
-  status           String    @default("active")
-  embeddingModel   String    @default("gemini-embedding-2") @map("embedding_model")
-  createdAt        DateTime  @default(now()) @map("created_at")
-  updatedAt        DateTime  @updatedAt @map("updated_at")
-  milvusCollection String?   @map("milvus_collection")
-  neo4j_namespace  String?
-  mongoCollection  String?   @map("mongo_collection")
-  config           Json?     @default("{}")
-  documentCount    Int       @default(0) @map("document_count")
-  embeddingCount   Int       @default(0) @map("embedding_count")
-  lastSyncAt       DateTime? @map("last_sync_at")
-  workspace        Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
-
-  @@unique([workspaceId, name])
-  @@index([workspaceId])
-  @@map("knowledge_bases")
-}
-
 model ApiKey {
   id         String    @id @default(uuid()) @db.Uuid
   userId     String    @map("user_id") @db.Uuid
@@ -242,7 +104,6 @@ model UserPreference {
   embeddingModel      String   @default("gemini-embedding-2") @map("embedding_model")
   enableNotifications Boolean  @default(true) @map("enable_notifications")
   emailDigest         String   @default("weekly") @map("email_digest")
-  defaultWorkspaceId  String?  @map("default_workspace_id") @db.Uuid
   customSettings      Json?    @default("{}") @map("custom_settings")
   createdAt           DateTime @default(now()) @map("created_at")
   updatedAt           DateTime @updatedAt @map("updated_at")
@@ -251,23 +112,19 @@ model UserPreference {
   @@map("user_preferences")
 }
 
-model agents {
-  id          String    @id @db.Uuid
-  user_id     String?   @db.Uuid
-  name        String    @db.VarChar(255)
-  agent_type  String    @db.VarChar(100)
-  endpoint    String?   @db.VarChar(500)
-  api_key     String?   @db.VarChar(500)
-  permissions Json?
-  status      String?   @db.VarChar(50)
-  config      Json?
-  created_at  DateTime? @default(now()) @db.Timestamptz(6)
-  updated_at  DateTime? @default(now()) @db.Timestamptz(6)
-  last_used   DateTime? @db.Timestamptz(6)
-  usage_stats Json?
-  provider    String?   @db.VarChar(100)
+model BillingUsage {
+  id                String   @id @default(uuid()) @db.Uuid
+  userId            String   @unique @map("user_id") @db.Uuid
+  subscriptionTier   String   @default("free") @map("subscription_tier")
+  reposCount         Int      @default(0) @map("repos_count")
+  docsCount          Int      @default(0) @map("docs_count")
+  lastUpdated        DateTime @updatedAt @map("last_updated")
+
+  @@map("billing_usage")
 }
 
+// These tables are managed by the Rust processing services (doc-uni-proc, repo-uni-proc)
+// and are included here for reference only. They are not managed by Prisma migrations.
 model file_metadata {
   id           String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   source_id    String    @db.VarChar(255)
@@ -282,20 +139,6 @@ model file_metadata {
   @@index([source_id], map: "idx_file_metadata_source_id")
 }
 
-model jobs {
-  id            String    @id @db.Uuid
-  source_id     String    @db.Uuid
-  user_id       String    @db.Uuid
-  status        String    @db.VarChar(50)
-  source_type   String    @db.VarChar(50)
-  job_type      String    @db.VarChar(50)
-  progress      Int?
-  error_message String?
-  started_at    DateTime? @db.Timestamptz(6)
-  completed_at  DateTime? @db.Timestamptz(6)
-  created_at    DateTime? @default(now()) @db.Timestamptz(6)
-}
-
 model processing_jobs {
   id            String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   source_id     String    @db.VarChar(255)
@@ -305,33 +148,23 @@ model processing_jobs {
   error_message String?
 }
 
-model repositories {
-  id            String    @id @db.Uuid
-  user_id       String?   @db.VarChar(255)
-  name          String    @db.VarChar(255)
-  provider      String    @db.VarChar(50)
-  url           String    @db.VarChar(500)
-  branch        String?   @db.VarChar(255)
-  status        String?   @db.VarChar(50)
-  source_id     String?   @db.VarChar(255)
-  last_sync     DateTime? @db.Timestamptz(6)
-  files_indexed Int?
-  created_at    DateTime? @default(now()) @db.Timestamptz(6)
-  updated_at    DateTime? @default(now()) @db.Timestamptz(6)
-  description   String?   @db.VarChar(1000)
-  language      String?   @db.VarChar(50)
-  stars         Int?      @default(0)
-  forks         Int?      @default(0)
+model chunk_snapshot {
+  id              String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  source_id       String    @db.VarChar(255)
+  filename        String    @db.VarChar(255)
+  start_byte      BigInt    @db.BigInt
+  end_byte        BigInt    @db.BigInt
+  chunk_key       String    @db.VarChar(255)
+  chunk_hash      String    @db.VarChar(255)
+  commit_id       String?   @db.VarChar(255)
+  embedding_model String    @db.VarChar(100)
+  last_indexed_at DateTime? @db.Timestamptz(6)
+  tombstone       Boolean   @default(false)
+
+  @@index([source_id, filename], map: "idx_chunk_snapshot_source_file")
+  @@index([chunk_key], map: "idx_chunk_snapshot_key")
 }
 
-model sources {
-  id              String    @id @db.Uuid
-  user_id         String    @db.Uuid
-  type            String    @db.VarChar(50)
-  uri             String    @unique @db.VarChar(500)
-  name            String?   @db.VarChar(255)
-  source_metadata Json?
-  status          String?   @db.VarChar(50)
-  created_at      DateTime? @default(now()) @db.Timestamptz(6)
-  updated_at      DateTime? @default(now()) @db.Timestamptz(6)
-}
+
+
+

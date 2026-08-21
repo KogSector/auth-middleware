@@ -11,6 +11,8 @@ import {
     getUserSubscriptionDetails,
     createCheckoutSession,
     getCustomerPortalUrl,
+    updateRepoCount,
+    updateDocCount,
     TIER_CONFIGS,
 } from '../services/billing.js';
 import { logger } from '../utils/logger.js';
@@ -251,6 +253,64 @@ billingRouter.post('/portal', requireAuth, async (req: AuthenticatedRequest, res
  */
 billingRouter.post('/webhook', express.raw({ type: 'application/json' }), async (_req: Request, res: Response) => {
     res.status(200).json({ success: true, message: 'Webhook endpoint active' });
+});
+
+/**
+ * Internal API: Update repository count for a user
+ * Called by data connector services when repositories are added/removed
+ */
+billingRouter.post('/internal/update-repo-count', async (req: Request, res: Response) => {
+    try {
+        const { userId, delta } = req.body;
+
+        if (!userId || typeof delta !== 'number') {
+            res.status(400).json({ error: 'Invalid request: userId and delta required' });
+            return;
+        }
+
+        // Validate internal API key
+        const apiKey = req.headers['x-api-key'] as string;
+        const config = (await import('../config.js')).default;
+        if (apiKey !== config.internalApiKey) {
+            res.status(401).json({ error: 'Unauthorized' });
+            return;
+        }
+
+        await updateRepoCount(userId, delta);
+        res.json({ success: true });
+    } catch (error) {
+        logger.error('[BILLING] Error updating repo count:', error);
+        res.status(500).json({ error: 'Internal server error' });
+    }
+});
+
+/**
+ * Internal API: Update document count for a user
+ * Called by data connector services when documents are added/removed
+ */
+billingRouter.post('/internal/update-doc-count', async (req: Request, res: Response) => {
+    try {
+        const { userId, delta } = req.body;
+
+        if (!userId || typeof delta !== 'number') {
+            res.status(400).json({ error: 'Invalid request: userId and delta required' });
+            return;
+        }
+
+        // Validate internal API key
+        const apiKey = req.headers['x-api-key'] as string;
+        const config = (await import('../config.js')).default;
+        if (apiKey !== config.internalApiKey) {
+            res.status(401).json({ error: 'Unauthorized' });
+            return;
+        }
+
+        await updateDocCount(userId, delta);
+        res.json({ success: true });
+    } catch (error) {
+        logger.error('[BILLING] Error updating doc count:', error);
+        res.status(500).json({ error: 'Internal server error' });
+    }
 });
 
 export default billingRouter;
