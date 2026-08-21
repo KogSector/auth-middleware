@@ -1,12 +1,11 @@
 import { Redis } from 'ioredis';
 import { logger } from '../utils/logger.js';
-import * as dotenv from 'dotenv';
-dotenv.config();
+import { config } from '../config.js';
 
-const falkordbHost = process.env.FALKORDB_HOST || 'r-6jissuruar.instance-ivah2xvml.hc-7up0crkyn.ap-south-1.aws.f2e0a955bb84.cloud';
-const falkordbPort = parseInt(process.env.FALKORDB_PORT || '50860', 10);
-const falkordbUsername = process.env.FALKORDB_USERNAME || 'adminconfuse';
-const falkordbPassword = process.env.FALKORDB_PASSWORD || 'graph4confuse';
+const falkordbHost = config.falkordbHost;
+const falkordbPort = config.falkordbPort;
+const falkordbUsername = config.falkordbUsername;
+const falkordbPassword = config.falkordbPassword;
 
 /**
  * Ensures that a FalkorDB graph is created and indexed for a new user.

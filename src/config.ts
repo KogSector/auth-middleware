@@ -45,6 +45,12 @@ interface Config {
     internalApiKey: string;
     redisUrl: string;
 
+    // FalkorDB configuration
+    falkordbHost: string;
+    falkordbPort: number;
+    falkordbUsername: string;
+    falkordbPassword: string;
+
     // Direct OAuth provider configs (non-Auth0 flows)
     github: OAuthProviderConfig;
     slack: OAuthProviderConfig;
@@ -102,6 +108,12 @@ export const config: Config = {
     internalApiKey: requireEnv('INTERNAL_API_KEY'),
 
     redisUrl: requireEnv('REDIS_URL'),
+
+    // FalkorDB configuration
+    falkordbHost: process.env.FALKORDB_HOST || 'r-6jissuruar.instance-ivah2xvml.hc-7up0crkyn.ap-south-1.aws.f2e0a955bb84.cloud',
+    falkordbPort: parseInt(process.env.FALKORDB_PORT || '50860', 10),
+    falkordbUsername: process.env.FALKORDB_USERNAME || 'adminconfuse',
+    falkordbPassword: process.env.FALKORDB_PASSWORD || 'graph4confuse',
 
     // Direct OAuth provider configs
     github: {
