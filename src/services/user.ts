@@ -6,6 +6,7 @@
 
 import { User, UserProfile, CreateUserInput } from '../types/index.js';
 import prisma from '../infra/db.js';
+import { logger } from '../utils/logger.js';
 
 /**
  * Find or create user by Auth0 subject
@@ -69,7 +70,7 @@ export async function findOrCreateByAuth0(input: CreateUserInput): Promise<User>
     // Initialize the per-user FalkorDB graph
     import('./user-graph.js').then(({ createUserGraph }) => {
         createUserGraph(user.id).catch((err) => {
-            console.error('[USER] Failed to initialize FalkorDB graph asynchronously:', err);
+            logger.error('[USER] Failed to initialize FalkorDB graph asynchronously', { userId: user.id, error: err });
         });
     });
 
