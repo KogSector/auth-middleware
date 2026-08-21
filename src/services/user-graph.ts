@@ -13,20 +13,38 @@ const falkordbPassword = config.falkordbPassword;
 export async function createUserGraph(userId: string): Promise<void> {
   const graphName = `graph-${userId}`;
   
+  logger.info(`Starting FalkorDB graph creation for user: ${userId}`, {
+    graphName,
+    host: falkordbHost,
+    port: falkordbPort,
+    username: falkordbUsername,
+    hasPassword: !!falkordbPassword
+  });
+  
   const redis = new Redis({
     host: falkordbHost,
     port: falkordbPort,
     username: falkordbUsername,
     password: falkordbPassword,
     tls: falkordbHost.includes('aws') ? {} : undefined,
+    connectTimeout: 10000, // 10 seconds connection timeout
+    lazyConnect: false, // Connect immediately
+    retryStrategy: (times: number) => {
+      if (times > 3) {
+        return null; // Stop retrying after 3 attempts
+      }
+      return Math.min(times * 200, 1000); // Exponential backoff
+    },
   });
 
   try {
-    logger.info(`Creating FalkorDB graph and indexes for user: ${userId} (${graphName})`);
+    logger.info(`Redis connection established, creating graph: ${graphName}`);
     
     // Create an index on Vector_Chunk to implicitly create the graph
     // (We'll also let the unified-processor ensure other indexes lazily if needed)
     await redis.call('GRAPH.QUERY', graphName, 'CREATE INDEX FOR (c:Vector_Chunk) ON (c.id)');
+    logger.info(`Created Vector_Chunk.id index for ${graphName}`);
+    
     await redis.call('GRAPH.QUERY', graphName, 'CREATE INDEX FOR (c:Vector_Chunk) ON (c.source_id)');
     await redis.call('GRAPH.QUERY', graphName, 'CREATE INDEX FOR (c:Vector_Chunk) ON (c.chunk_type)');
     await redis.call('GRAPH.QUERY', graphName, 'CREATE INDEX FOR (c:Vector_Chunk) ON (c.owner_id)');
@@ -52,10 +70,14 @@ export async function createUserGraph(userId: string): Promise<void> {
     if (error.message && error.message.includes('Index already exists')) {
       logger.info(`Graph indexes already exist for ${graphName}`);
     } else {
-      logger.error(`Error initializing FalkorDB graph for user ${userId}:`, error);
+      logger.error(`Error initializing FalkorDB graph for user ${userId}:`, {
+        error: error.message,
+        stack: error.stack
+      });
     }
   } finally {
     redis.disconnect();
+    logger.info(`Redis connection closed for ${graphName}`);
   }
 }
 
@@ -71,6 +93,14 @@ export async function deleteUserGraph(userId: string): Promise<void> {
     username: falkordbUsername,
     password: falkordbPassword,
     tls: falkordbHost.includes('aws') ? {} : undefined,
+    connectTimeout: 10000, // 10 seconds connection timeout
+    lazyConnect: false, // Connect immediately
+    retryStrategy: (times: number) => {
+      if (times > 3) {
+        return null; // Stop retrying after 3 attempts
+      }
+      return Math.min(times * 200, 1000); // Exponential backoff
+    },
   });
 
   try {
