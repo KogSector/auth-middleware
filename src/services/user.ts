@@ -71,9 +71,13 @@ export async function findOrCreateByAuth0(input: CreateUserInput): Promise<User>
     logger.info('[USER] About to initialize FalkorDB graph for new user', { userId: user.id });
     import('./user-graph.js').then(({ createUserGraph }) => {
         logger.info('[USER] createUserGraph module loaded, calling function', { userId: user.id });
-        createUserGraph(user.id).catch((err) => {
-            logger.error('[USER] Failed to initialize FalkorDB graph asynchronously', { userId: user.id, error: err });
-        });
+        createUserGraph(user.id)
+            .then(() => {
+                logger.info('[USER] Successfully initialized FalkorDB graph for new user', { userId: user.id });
+            })
+            .catch((err) => {
+                logger.error('[USER] Failed to initialize FalkorDB graph asynchronously', { userId: user.id, error: err });
+            });
     }).catch((err) => {
         logger.error('[USER] Failed to load user-graph module', { userId: user.id, error: err });
     });
