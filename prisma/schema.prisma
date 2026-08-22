@@ -18,7 +18,7 @@ model User {
   lastLoginAt          DateTime?         @map("last_login_at")
   accounts             Account[]
   apiKeys              ApiKey[]
-  sessions             Session[]
+  sources              Source[]
   preferences          UserPreference?
   billingUsage         BillingUsage?
   onboardingCompleted        Boolean              @default(false) @map("onboarding_completed")
@@ -34,26 +34,26 @@ model User {
   @@map("users")
 }
 
-model Session {
-  id                String    @id @default(uuid()) @db.Uuid
-  userId            String    @map("user_id") @db.Uuid
-  refreshToken      String    @unique @map("refresh_token")
-  expiresAt         DateTime  @map("expires_at")
-  createdAt         DateTime  @default(now()) @map("created_at")
-  revokedAt         DateTime? @map("revoked_at")
-  userAgent         String?   @map("user_agent")
-  ipAddress         String?   @map("ip_address")
-  deviceInfo        Json?     @map("device_info")
-  lastActiveAt      DateTime? @map("last_active_at")
-  isActive          Boolean   @default(true) @map("is_active")
-  deviceFingerprint String?   @map("device_fingerprint") @db.VarChar(255)
-  user              User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+model Source {
+  id          String    @id @default(uuid()) @db.Uuid
+  userId      String    @map("user_id") @db.Uuid
+  type        String    @db.VarChar(50) // 'repo', 'doc', 'log_app'
+  name        String    @db.VarChar(255)
+  url         String?   @db.VarChar(500)
+  provider    String?   @db.VarChar(50) // 'github', 'gitlab', 'notion', 'google_drive', etc.
+  externalId  String?   @map("external_id") @db.VarChar(255) // External provider's ID for this source
+  config      Json?     @default("{}")
+  status      String    @default("active") @db.VarChar(50)
+  lastSyncedAt DateTime? @map("last_synced_at")
+  createdAt   DateTime  @default(now()) @map("created_at")
+  updatedAt   DateTime  @updatedAt @map("updated_at")
+  user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId])
-  @@index([refreshToken])
-  @@index([isActive])
-  @@index([deviceFingerprint])
-  @@map("sessions")
+  @@index([type])
+  @@index([provider])
+  @@index([externalId])
+  @@map("sources")
 }
 
 model Account {
