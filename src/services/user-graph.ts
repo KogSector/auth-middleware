@@ -8,7 +8,7 @@ const falkordbUsername = config.falkordbUsername;
 const falkordbPassword = config.falkordbPassword;
 
 /**
- * Ensures that a FalkorDB graph is created and indexed for a new user.
+ * Ensures that a FalkorDB graph is created and indexed for a user.
  */
 export async function createUserGraph(userId: string): Promise<void> {
   const graphName = `graph-${userId}`;
@@ -26,7 +26,6 @@ export async function createUserGraph(userId: string): Promise<void> {
     port: falkordbPort,
     username: falkordbUsername,
     password: falkordbPassword,
-    tls: falkordbHost.includes('aws') ? {} : undefined,
     connectTimeout: 10000, // 10 seconds connection timeout
     lazyConnect: false, // Connect immediately
     retryStrategy: (times: number) => {
@@ -40,41 +39,41 @@ export async function createUserGraph(userId: string): Promise<void> {
   try {
     logger.info(`Redis connection established, creating graph: ${graphName}`);
     
-    // Create an index on Vector_Chunk to implicitly create the graph
-    // (We'll also let the unified-processor ensure other indexes lazily if needed)
-    await redis.call('GRAPH.QUERY', graphName, 'CREATE INDEX FOR (c:Vector_Chunk) ON (c.id)');
-    logger.info(`Created Vector_Chunk.id index for ${graphName}`);
-    
-    await redis.call('GRAPH.QUERY', graphName, 'CREATE INDEX FOR (c:Vector_Chunk) ON (c.source_id)');
-    await redis.call('GRAPH.QUERY', graphName, 'CREATE INDEX FOR (c:Vector_Chunk) ON (c.chunk_type)');
-    await redis.call('GRAPH.QUERY', graphName, 'CREATE INDEX FOR (c:Vector_Chunk) ON (c.owner_id)');
-    await redis.call('GRAPH.QUERY', graphName, "CREATE VECTOR INDEX FOR (c:Vector_Chunk) ON (c.embeddings) OPTIONS {dimension: 768, similarityFunction: 'cosine'}");
-    
-    // Code_Entity indexes
-    await redis.call('GRAPH.QUERY', graphName, 'CREATE INDEX FOR (e:Code_Entity) ON (e.name)');
-    await redis.call('GRAPH.QUERY', graphName, 'CREATE INDEX FOR (e:Code_Entity) ON (e.entity_type)');
-    await redis.call('GRAPH.QUERY', graphName, 'CREATE INDEX FOR (e:Code_Entity) ON (e.source_id)');
-    await redis.call('GRAPH.QUERY', graphName, 'CREATE INDEX FOR (e:Code_Entity) ON (e.qualified_name)');
-    await redis.call('GRAPH.QUERY', graphName, 'CREATE INDEX FOR (e:Code_Entity) ON (e.owner_id)');
-    
-    // Web_Page and Repository indexes
-    await redis.call('GRAPH.QUERY', graphName, 'CREATE INDEX FOR (p:Web_Page) ON (p.url)');
-    await redis.call('GRAPH.QUERY', graphName, 'CREATE INDEX FOR (p:Web_Page) ON (p.domain)');
-    await redis.call('GRAPH.QUERY', graphName, 'CREATE INDEX FOR (p:Web_Page) ON (p.source_id)');
-    await redis.call('GRAPH.QUERY', graphName, 'CREATE INDEX FOR (p:Web_Page) ON (p.owner_id)');
-    await redis.call('GRAPH.QUERY', graphName, 'CREATE INDEX FOR (r:Repository) ON (r.owner_id)');
+    const indexQueries = [
+      'CREATE INDEX FOR (c:Vector_Chunk) ON (c.id)',
+      'CREATE INDEX FOR (c:Vector_Chunk) ON (c.source_id)',
+      'CREATE INDEX FOR (c:Vector_Chunk) ON (c.chunk_type)',
+      'CREATE INDEX FOR (c:Vector_Chunk) ON (c.owner_id)',
+      "CREATE VECTOR INDEX FOR (c:Vector_Chunk) ON (c.embeddings) OPTIONS {dimension: 768, similarityFunction: 'cosine'}",
+      'CREATE INDEX FOR (e:Code_Entity) ON (e.name)',
+      'CREATE INDEX FOR (e:Code_Entity) ON (e.entity_type)',
+      'CREATE INDEX FOR (e:Code_Entity) ON (e.source_id)',
+      'CREATE INDEX FOR (e:Code_Entity) ON (e.qualified_name)',
+      'CREATE INDEX FOR (e:Code_Entity) ON (e.owner_id)',
+      'CREATE INDEX FOR (p:Web_Page) ON (p.url)',
+      'CREATE INDEX FOR (p:Web_Page) ON (p.domain)',
+      'CREATE INDEX FOR (p:Web_Page) ON (p.source_id)',
+      'CREATE INDEX FOR (p:Web_Page) ON (p.owner_id)',
+      'CREATE INDEX FOR (r:Repository) ON (r.owner_id)'
+    ];
+
+    for (const query of indexQueries) {
+      try {
+        await redis.call('GRAPH.QUERY', graphName, query);
+      } catch (err: any) {
+        if (err.message && (err.message.includes('Index already exists') || err.message.includes('already indexed') || err.message.includes('already exists'))) {
+          continue;
+        }
+        logger.warn(`Non-critical error creating index "${query}" on ${graphName}:`, { error: err.message });
+      }
+    }
     
     logger.info(`Successfully initialized graph ${graphName}`);
   } catch (error: any) {
-    // If the index already exists, it will throw an error, which is safe to ignore
-    if (error.message && error.message.includes('Index already exists')) {
-      logger.info(`Graph indexes already exist for ${graphName}`);
-    } else {
-      logger.error(`Error initializing FalkorDB graph for user ${userId}:`, {
-        error: error.message,
-        stack: error.stack
-      });
-    }
+    logger.error(`Error initializing FalkorDB graph for user ${userId}:`, {
+      error: error.message,
+      stack: error.stack
+    });
   } finally {
     redis.disconnect();
     logger.info(`Redis connection closed for ${graphName}`);
@@ -92,7 +91,6 @@ export async function deleteUserGraph(userId: string): Promise<void> {
     port: falkordbPort,
     username: falkordbUsername,
     password: falkordbPassword,
-    tls: falkordbHost.includes('aws') ? {} : undefined,
     connectTimeout: 10000, // 10 seconds connection timeout
     lazyConnect: false, // Connect immediately
     retryStrategy: (times: number) => {
@@ -112,7 +110,7 @@ export async function deleteUserGraph(userId: string): Promise<void> {
     logger.info(`Successfully deleted graph ${graphName}`);
   } catch (error: any) {
     // If the graph doesn't exist, it's fine. We log it but don't fail.
-    if (error.message && error.message.includes('Invalid graph name')) {
+    if (error.message && (error.message.includes('Invalid graph name') || error.message.includes('not found') || error.message.includes('no such graph'))) {
       logger.info(`Graph ${graphName} did not exist, nothing to delete.`);
     } else {
       logger.error(`Error deleting FalkorDB graph for user ${userId}:`, error);
@@ -121,3 +119,4 @@ export async function deleteUserGraph(userId: string): Promise<void> {
     redis.disconnect();
   }
 }
+
