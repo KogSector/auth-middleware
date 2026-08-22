@@ -33,6 +33,7 @@ async function ensureUserGraphExists(userId: string): Promise<void> {
  * Find or create user by Auth0 subject
  */
 export async function findOrCreateByAuth0(input: CreateUserInput): Promise<User> {
+    logger.info('[USER] findOrCreateByAuth0 called', { auth0Sub: input.auth0Sub, email: input.email });
     let { auth0Sub, email, name, picture } = input;
 
     if (!email || email.trim() === '') {
@@ -45,6 +46,7 @@ export async function findOrCreateByAuth0(input: CreateUserInput): Promise<User>
     });
 
     if (user) {
+        logger.info('[USER] Found existing user by auth0Sub', { userId: user.id });
         // Update user info if changed
         user = await prisma.user.update({
             where: { id: user.id },
@@ -57,6 +59,7 @@ export async function findOrCreateByAuth0(input: CreateUserInput): Promise<User>
         });
         
         // Ensure FalkorDB graph exists for returning user
+        logger.info('[USER] Calling ensureUserGraphExists for existing user', { userId: user.id });
         await ensureUserGraphExists(user.id);
         
         return user as User;
@@ -68,6 +71,7 @@ export async function findOrCreateByAuth0(input: CreateUserInput): Promise<User>
     });
 
     if (existingByEmail) {
+        logger.info('[USER] Found existing user by email, linking auth0Sub', { userId: existingByEmail.id });
         // Link auth0Sub to existing user
         user = await prisma.user.update({
             where: { id: existingByEmail.id },
@@ -80,12 +84,14 @@ export async function findOrCreateByAuth0(input: CreateUserInput): Promise<User>
         });
         
         // Ensure FalkorDB graph exists for returning user
+        logger.info('[USER] Calling ensureUserGraphExists for email-linked user', { userId: user.id });
         await ensureUserGraphExists(user.id);
         
         return user as User;
     }
 
     // Create new user
+    logger.info('[USER] Creating new user in database', { auth0Sub, email });
     user = await prisma.user.create({
         data: {
             auth0Sub,
@@ -95,22 +101,11 @@ export async function findOrCreateByAuth0(input: CreateUserInput): Promise<User>
             lastLoginAt: new Date(),
         },
     });
+    logger.info('[USER] New user created in database', { userId: user.id });
 
     // Initialize the per-user FalkorDB graph - CRITICAL: must succeed
-    logger.info('[USER] Creating new user, initializing FalkorDB graph', { userId: user.id });
-    try {
-        const { createUserGraph } = await import('./user-graph.js');
-        logger.info('[USER] createUserGraph module imported successfully', { userId: user.id });
-        await createUserGraph(user.id);
-        logger.info('[USER] FalkorDB graph created successfully for new user', { userId: user.id });
-    } catch (err) {
-        logger.error('[USER] CRITICAL: Failed to create FalkorDB graph for new user', { 
-            userId: user.id, 
-            error: err instanceof Error ? err.message : String(err),
-            stack: err instanceof Error ? err.stack : undefined
-        });
-        // Still return user but log the failure prominently
-    }
+    logger.info('[USER] Calling ensureUserGraphExists for new user', { userId: user.id });
+    await ensureUserGraphExists(user.id);
 
     // Create default preferences
     try {
