@@ -24,10 +24,13 @@ export async function initRedis(): Promise<void> {
             socket: {
                 keepAlive: true,
                 reconnectStrategy: (retries) => {
-                    const delay = Math.min(retries * 50, 1000);
+                    const delay = Math.min(retries * 100, 5000);
+                    if (retries > 10) {
+                        return new Error('Redis reconnection failed after 10 retries');
+                    }
                     return delay;
                 },
-                connectTimeout: 10000
+                connectTimeout: 30000 // Increased from 10s to 30s
             },
             database: 0,
             disableOfflineQueue: false

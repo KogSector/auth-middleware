@@ -43,8 +43,15 @@ class TokenCacheService {
 
         try {
             this.redis = new Redis(config.redisUrl, {
-                keepAlive: 10000,
-                retryStrategy: (times) => Math.min(times * 50, 2000),
+                keepAlive: 30000,
+                connectTimeout: 30000, // Increased from default to 30s
+                lazyConnect: false,
+                retryStrategy: (times) => {
+                    if (times > 10) {
+                        return null; // Stop retrying after 10 attempts
+                    }
+                    return Math.min(times * 100, 5000); // More aggressive retry
+                },
             });
 
             this.redis.on('error', (err: Error) => {
