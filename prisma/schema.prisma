@@ -140,14 +140,6 @@ model file_metadata {
   @@index([source_id], map: "idx_file_metadata_source_id")
 }
 
-model processing_jobs {
-  id            String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  source_id     String    @db.VarChar(255)
-  status        String    @db.VarChar(50)
-  created_at    DateTime? @default(now()) @db.Timestamptz(6)
-  completed_at  DateTime? @db.Timestamptz(6)
-  error_message String?
-}
 
 model chunk_snapshot {
   id              String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid

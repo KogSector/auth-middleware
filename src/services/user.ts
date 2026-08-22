@@ -69,18 +69,15 @@ export async function findOrCreateByAuth0(input: CreateUserInput): Promise<User>
 
     // Initialize the per-user FalkorDB graph
     logger.info('[USER] About to initialize FalkorDB graph for new user', { userId: user.id });
-    import('./user-graph.js').then(({ createUserGraph }) => {
+    try {
+        const { createUserGraph } = await import('./user-graph.js');
         logger.info('[USER] createUserGraph module loaded, calling function', { userId: user.id });
-        createUserGraph(user.id)
-            .then(() => {
-                logger.info('[USER] Successfully initialized FalkorDB graph for new user', { userId: user.id });
-            })
-            .catch((err) => {
-                logger.error('[USER] Failed to initialize FalkorDB graph asynchronously', { userId: user.id, error: err });
-            });
-    }).catch((err) => {
-        logger.error('[USER] Failed to load user-graph module', { userId: user.id, error: err });
-    });
+        await createUserGraph(user.id);
+        logger.info('[USER] Successfully initialized FalkorDB graph for new user', { userId: user.id });
+    } catch (err) {
+        logger.error('[USER] Failed to initialize FalkorDB graph', { userId: user.id, error: err });
+        // Don't throw - user creation should succeed even if graph creation fails
+    }
 
     // Create default preferences
     try {
