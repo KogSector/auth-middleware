@@ -21,8 +21,23 @@ import { rateLimitMiddleware, initRedis } from './middleware/rate-limiter.js';
 import { securityHeadersMiddleware } from './middleware/security-headers.js';
 import { startGrpcServer } from './infra/grpc.js';
 
-// Initialize Redis for rate limiting
-initRedis();
+// Global error handler for uncaught exceptions
+process.on('uncaughtException', (error) => {
+    logger.error('[AUTH-MIDDLEWARE] Uncaught Exception:', error);
+    process.exit(1);
+});
+
+process.on('unhandledRejection', (reason, promise) => {
+    logger.error('[AUTH-MIDDLEWARE] Unhandled Rejection at:', promise, 'reason:', reason);
+});
+
+// Initialize Redis for rate limiting (with error handling)
+try {
+    initRedis();
+    logger.info('[AUTH-MIDDLEWARE] Redis initialized for rate limiting');
+} catch (error) {
+    logger.warn('[AUTH-MIDDLEWARE] Redis initialization failed, rate limiting disabled:', error);
+}
 
 const app = express();
 
@@ -153,7 +168,7 @@ logger.info(`[AUTH-MIDDLEWARE] Timestamp: ${new Date().toISOString()}`);
 logger.info(`[AUTH-MIDDLEWARE] Node version: ${process.version}`);
 logger.info(`[AUTH-MIDDLEWARE] Environment: ${config.nodeEnv}`);
 
-app.listen(PORT, () => {
+const server = app.listen(PORT, () => {
     logger.info('');
     logger.info('╔══════════════════════════════════════════════════════════╗');
     logger.info('║        🔐 ConFuse Auth Middleware (TypeScript)           ║');
@@ -165,7 +180,18 @@ app.listen(PORT, () => {
     logger.info('');
 
     // Start gRPC Server
-    startGrpcServer();
+    try {
+        startGrpcServer();
+        logger.info('[AUTH-MIDDLEWARE] gRPC server started successfully');
+    } catch (error) {
+        logger.error('[AUTH-MIDDLEWARE] Failed to start gRPC server:', error);
+    }
+});
+
+// Handle server errors
+server.on('error', (error) => {
+    logger.error('[AUTH-MIDDLEWARE] Server error:', error);
+    process.exit(1);
 });
 
 export default app;
