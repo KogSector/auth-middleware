@@ -51,10 +51,11 @@ app.use(cors({
     origin: (origin, callback) => {
         // Allow requests with no origin (like mobile apps or curl requests)
         if (!origin) return callback(null, true);
-        // Allow localhost, onrender.com subdomains, and explicitly configured origins
+        // Allow localhost, onrender.com subdomains, confuse.site subdomains, and explicitly configured origins
         if (
             origin.includes('localhost') || 
             origin.endsWith('.onrender.com') || 
+            origin.endsWith('.confuse.site') ||
             config.corsOrigins.includes(origin)
         ) {
             callback(null, true);
