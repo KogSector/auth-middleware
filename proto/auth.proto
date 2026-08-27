@@ -39,6 +39,7 @@ message ValidateTokenResponse {
   repeated string roles = 3;
   optional string error = 4;
   string email = 5;
+  string subscription_tier = 6;
 }
 
 message ValidateApiKeyRequest {
@@ -52,6 +53,7 @@ message ValidateApiKeyResponse {
   repeated string roles = 4;
   string key_id = 5;
   string error = 6;
+  string subscription_tier = 7;
 }
 
 message GetUserRequest {

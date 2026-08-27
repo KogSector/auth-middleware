@@ -62,6 +62,8 @@ export interface Auth0Claims {
     picture?: string;
     permissions?: string[];
     roles?: string[]; // Augmented by middleware
+    subscriptionTier?: string;
+    subscription_tier?: string;
     [key: string]: unknown;
 }
 
@@ -91,6 +93,7 @@ export interface AuthExchangeResponse {
 export interface TokenVerifyResponse {
     valid: boolean;
     claims?: Auth0Claims;
+    subscription_tier?: string;
     error?: string;
 }
 

@@ -39,11 +39,25 @@ const validateToken = async (call: any, callback: any) => {
         const payload = await verifyAuth0Token(token);
         const roles = extractRoles(payload);
 
+        let subscriptionTier = 'free';
+        try {
+            const user = await prisma.user.findUnique({
+                where: { auth0Sub: payload.sub },
+                select: { subscriptionTier: true }
+            });
+            if (user?.subscriptionTier) {
+                subscriptionTier = user.subscriptionTier;
+            }
+        } catch (dbErr: any) {
+            logger.warn(`[gRPC] Could not fetch user subscription tier: ${dbErr.message}`);
+        }
+
         callback(null, {
             valid: true,
             user_id: payload.sub,
             roles: roles,
             email: payload.email || "",
+            subscription_tier: subscriptionTier,
         });
     } catch (error: any) {
         logger.warn(`[gRPC] Token validation failed: ${error.message}`);
@@ -69,10 +83,36 @@ const validateApiKey = async (call: any, callback: any) => {
                 email: 'internal@confuse.dev',
                 roles: ['service'],
                 key_id: 'internal-key',
+                subscription_tier: 'enterprise',
             });
         }
 
-        // TODO: Implement user API key validation against database (prisma.apiKey)
+        // Check user API key validation against database (prisma.apiKey) if applicable
+        try {
+            const keyRecord = await prisma.apiKey.findFirst({
+                where: {
+                    OR: [
+                        { keyHash: api_key },
+                        { keyPrefix: api_key.substring(0, 8) }
+                    ],
+                    revokedAt: null
+                },
+                include: { user: true }
+            });
+
+            if (keyRecord && keyRecord.user) {
+                return callback(null, {
+                    valid: true,
+                    user_id: keyRecord.userId,
+                    email: keyRecord.user.email,
+                    roles: keyRecord.user.roles || ['user'],
+                    key_id: keyRecord.id,
+                    subscription_tier: keyRecord.user.subscriptionTier || 'free',
+                });
+            }
+        } catch (dbErr: any) {
+            logger.warn(`[gRPC] DB API key lookup failed: ${dbErr.message}`);
+        }
         
         callback(null, { valid: false, error: 'Invalid API key' });
     } catch (error: any) {
