@@ -15,8 +15,8 @@ cd auth-middleware
 npm install
 
 # Configure environment
-cp .env.map.example .env.map
-cp .env.secret.example .env.secret
+cp .map.env.example .map.env
+cp .secret.env.example .secret.env
 
 # Setup database
 npm run prisma:push
@@ -89,7 +89,7 @@ graph TD
 - **Structured Logging**: Correlation IDs and trace tracking
 
 ### 4. **Configuration Management**
-- **Environment Split**: `.env.map` (non-sensitive) + `.env.secret` (sensitive)
+- **Environment Split**: `.map.env` (non-sensitive) + `.secret.env` (sensitive)
 - **Feature Toggle Integration**: Dynamic feature flag support
 - **Multi-Environment**: Development, staging, production configs
 
@@ -128,7 +128,7 @@ rpc RefreshToken(RefreshTokenRequest) returns (RefreshTokenResponse)
 
 ### Required Environment Variables
 
-#### `.env.map` (Non-sensitive)
+#### `.map.env` (Non-sensitive)
 ```bash
 PORT=3010
 GRPC_PORT=50058
@@ -143,7 +143,7 @@ CORS_ORIGINS=http://localhost:3000,https://confuse.platform.example.com
 FRONTEND_URL=http://localhost:3000
 ```
 
-#### `.env.secret` (Sensitive)
+#### `.secret.env` (Sensitive)
 ```bash
 POSTGRES_CONNECTION_STRING=postgresql://...
 REDIS_URL=redis://...
@@ -206,8 +206,8 @@ All ConFuse microservices integrate with auth-middleware:
 npm install
 
 # Setup environment
-cp .env.map.example .env.map
-cp .env.secret.example .env.secret
+cp .map.env.example .map.env
+cp .secret.env.example .secret.env
 # Edit both files with your values
 
 # Database setup
@@ -240,7 +240,7 @@ npm run lint
 
 #### "Redis connection failed"
 - Verify Redis is running on configured port
-- Check `REDIS_URL` in `.env.secret`
+- Check `REDIS_URL` in `.secret.env`
 - Ensure Redis credentials are correct
 
 #### "gRPC server not starting"

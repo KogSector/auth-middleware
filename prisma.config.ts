@@ -1,7 +1,7 @@
 import { config } from 'dotenv';
 import path from 'path';
-config({ path: path.resolve(process.cwd(), '.env.map') });
-config({ path: path.resolve(process.cwd(), '.env.secret') });
+config({ path: path.resolve(process.cwd(), '.map.env') });
+config({ path: path.resolve(process.cwd(), '.secret.env') });
 
 import { defineConfig, env } from 'prisma/config';
 

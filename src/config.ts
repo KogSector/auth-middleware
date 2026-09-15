@@ -18,10 +18,10 @@ interface Auth0Config {
 
 import path from 'path';
 
-// Load .env.map first, then .env.secret (with override), then .env.local
-dotenv.config({ path: path.resolve(process.cwd(), '.env.map') });
-// .env.secret overrides defaults (override: true ensures secrets win over .env.map)
-dotenv.config({ path: path.resolve(process.cwd(), '.env.secret'), override: true });
+// Load .map.env first, then .secret.env (with override), then .env.local
+dotenv.config({ path: path.resolve(process.cwd(), '.map.env') });
+// .secret.env overrides defaults (override: true ensures secrets win over .map.env)
+dotenv.config({ path: path.resolve(process.cwd(), '.secret.env'), override: true });
 // .env.local allows local developer overrides on top of everything
 dotenv.config({ path: path.resolve(process.cwd(), '.env.local'), override: true });
 
