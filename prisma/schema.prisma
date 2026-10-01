@@ -21,6 +21,7 @@ model User {
   sources              Source[]
   preferences          UserPreference?
   billingUsage         BillingUsage?
+  falkorDBConnections  FalkorDBConnection[]
   onboardingCompleted        Boolean              @default(false) @map("onboarding_completed")
   userIntent                 String?              @map("user_intent")
   dashboardPreset            String?              @map("dashboard_preset")
@@ -122,6 +123,66 @@ model BillingUsage {
   user              User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@map("billing_usage")
+}
+
+// ============================================================================
+// Customer-owned FalkorDB connections (Cloud / self-hosted / BYOC)
+// ============================================================================
+// NOTE: This table stores connection METADATA ONLY — host/port/username,
+// graph name, TLS settings and secret *references*. The actual password and
+// certificate material live in the `secrets` table (AES-256-GCM encrypted),
+// never in plaintext application storage.
+
+model FalkorDBConnection {
+  id                          String    @id @default(uuid()) @db.Uuid
+  customerId                  String    @map("customer_id") @db.Uuid
+  name                        String    @db.VarChar(255)
+  host                        String    @db.VarChar(255)
+  port                        Int
+  username                    String?   @db.VarChar(255)
+  passwordSecretRef           String?   @map("password_secret_ref") @db.VarChar(500)
+  graphName                   String    @map("graph_name") @db.VarChar(255)
+  tlsEnabled                  Boolean   @default(false) @map("tls_enabled")
+  caCertificateSecretRef      String?   @map("ca_certificate_secret_ref") @db.VarChar(500)
+  clientCertificateSecretRef  String?   @map("client_certificate_secret_ref") @db.VarChar(500)
+  clientKeySecretRef          String?   @map("client_key_secret_ref") @db.VarChar(500)
+  topology                    String?   @db.VarChar(20) // 'standalone' | 'sentinel' | 'cluster'
+  deploymentType              String?   @map("deployment_type") @db.VarChar(20) // metadata only: 'cloud' | 'self_hosted' | 'byoc' | 'unknown'
+  sentinelMasterName          String?   @map("sentinel_master_name") @db.VarChar(255)
+  status                      String    @default("active") @db.VarChar(20)
+  lastTestedAt                DateTime? @map("last_tested_at")
+  lastTestStatus              String?   @map("last_test_status") @db.VarChar(20) // 'passed' | 'failed'
+  createdAt                   DateTime  @default(now()) @map("created_at")
+  updatedAt                   DateTime  @updatedAt @map("updated_at")
+
+  customer User @relation(fields: [customerId], references: [id], onDelete: Cascade)
+
+  @@index([customerId])
+  @@map("falkordb_connections")
+}
+
+// ============================================================================
+// Encrypted secret store
+// ============================================================================
+// Generic application secret store. Values are encrypted with AES-256-GCM
+// before they touch the database (see services/secret-store.ts). The database
+// only ever holds ciphertext, IV and auth tag.
+
+model Secret {
+  id         String   @id @default(uuid()) @db.Uuid
+  secretRef  String   @unique @map("secret_ref") @db.VarChar(500)
+  ownerId    String   @map("owner_id") @db.Uuid
+  purpose    String   @default("falkordb") @db.VarChar(50)
+  algorithm  String   @default("aes-256-gcm") @db.VarChar(30)
+  keyVersion Int      @default(1) @map("key_version")
+  ciphertext String   @db.Text
+  iv         String   @map("iv") @db.Text
+  authTag    String   @map("auth_tag") @db.Text
+  createdAt  DateTime @default(now()) @map("created_at")
+  updatedAt  DateTime @updatedAt @map("updated_at")
+
+  @@index([ownerId])
+  @@map("secrets")
 }
 
 // These tables are managed by the Rust processing services (doc-uni-proc, repo-uni-proc)
