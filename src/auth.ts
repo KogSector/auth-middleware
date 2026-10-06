@@ -439,8 +439,8 @@ export function getProviderAliases(provider: string): string[] {
     if (['onedrive', 'microsoft', 'windowslive', 'waad'].includes(provider)) {
         return ['onedrive', 'microsoft', 'windowslive', 'waad'];
     }
-    if (['google', 'google-oauth2', 'google_drive'].includes(provider)) {
-        return ['google', 'google-oauth2', 'google_drive'];
+    if (['google', 'google-oauth2', 'google_drive', 'gdrive'].includes(provider)) {
+        return ['google', 'google-oauth2', 'google_drive', 'gdrive'];
     }
     return [provider];
 }
