@@ -45,8 +45,8 @@ graph TD
     %% Client Layer
     Frontend[Frontend<br/>Port: 3000] -->|Auth0 JWT| AM[Auth-Middleware<br/>Port: 3010<br/>gRPC: 50058]
     ClientConnector[Client-Connector<br/>Port: 3020] -->|gRPC Auth| AM
-    DataConnector[Data-Connector<br/>Port: 3030] -->|HTTP Auth| AM
-    Embeddings[Embeddings-Service<br/>Port: 3001] -->|HTTP Auth| AM
+    DataConnector[Data-Connector<br/>Port: 8081] -->|HTTP Auth| AM
+    Embeddings[Embeddings-Service<br/>Port: 3011] -->|HTTP Auth| AM
     UnifiedProcessor[Unified-Processor<br/>Port: 8090] -->|HTTP Auth| AM
     
     %% Auth0 Integration

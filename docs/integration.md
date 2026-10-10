@@ -62,7 +62,7 @@ Service                        Auth-Middleware
 import axios from 'axios';
 
 const authClient = axios.create({
-  baseURL: process.env.AUTH_MIDDLEWARE_URL || 'http://localhost:3001',
+  baseURL: process.env.AUTH_MIDDLEWARE_URL || 'http://localhost:3010',
   timeout: 5000,
 });
 
@@ -184,7 +184,7 @@ from typing import Optional
 from pydantic import BaseModel
 import os
 
-AUTH_MIDDLEWARE_URL = os.getenv("AUTH_MIDDLEWARE_URL", "http://localhost:3001")
+AUTH_MIDDLEWARE_URL = os.getenv("AUTH_MIDDLEWARE_URL", "http://localhost:3010")
 
 class User(BaseModel):
     id: str

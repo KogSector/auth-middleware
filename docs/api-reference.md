@@ -5,7 +5,7 @@
 ## Base URL
 
 ```
-Development: http://localhost:3001
+Development: http://localhost:3010
 Production: https://auth.confuse.io
 ```
 
