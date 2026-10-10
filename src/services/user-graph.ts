@@ -44,7 +44,7 @@ export async function createUserGraph(userId: string): Promise<void> {
       'CREATE INDEX FOR (c:Vector_Chunk) ON (c.source_id)',
       'CREATE INDEX FOR (c:Vector_Chunk) ON (c.chunk_type)',
       'CREATE INDEX FOR (c:Vector_Chunk) ON (c.owner_id)',
-      "CREATE VECTOR INDEX FOR (c:Vector_Chunk) ON (c.embeddings) OPTIONS {dimension: 768, similarityFunction: 'cosine'}",
+      `CREATE VECTOR INDEX FOR (c:Vector_Chunk) ON (c.embeddings) OPTIONS {dimension: ${config.embeddingDimension}, similarityFunction: 'cosine'}`,
       'CREATE INDEX FOR (e:Code_Entity) ON (e.name)',
       'CREATE INDEX FOR (e:Code_Entity) ON (e.entity_type)',
       'CREATE INDEX FOR (e:Code_Entity) ON (e.source_id)',

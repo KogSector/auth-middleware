@@ -50,6 +50,8 @@ interface Config {
     falkordbPort: number;
     falkordbUsername: string;
     falkordbPassword: string;
+    /** Vector index dimensionality — must match the embedding pipeline (384). */
+    embeddingDimension: number;
 
     // Direct OAuth provider configs (non-Auth0 flows)
     github: OAuthProviderConfig;
@@ -114,6 +116,10 @@ export const config: Config = {
     falkordbPort: parseInt(process.env.FALKORDB_PORT || '50860', 10),
     falkordbUsername: process.env.FALKORDB_USERNAME || 'adminconfuse',
     falkordbPassword: process.env.FALKORDB_PASSWORD || 'graph4confuse',
+    // Must match embeddings-service output (384-d) and the processors'
+    // create_vector_index dimension; override via EMBEDDING_DIMENSION only
+    // when the whole pipeline is re-dimensioned together.
+    embeddingDimension: parseInt(process.env.EMBEDDING_DIMENSION || '384', 10),
 
     // Direct OAuth provider configs
     github: {
